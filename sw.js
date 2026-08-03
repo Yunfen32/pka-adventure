@@ -7,7 +7,7 @@
  *   - AI API（POST）：不拦截，直接走网络
  * ============================================================ */
 
-const VERSION = 'pka-v1.1.0';
+const VERSION = 'pka-v1.3.1';
 const SHELL_CACHE = `${VERSION}-shell`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 
@@ -29,7 +29,14 @@ const SHELL_ASSETS = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(SHELL_CACHE)
-      .then((cache) => cache.addAll(SHELL_ASSETS))
+      /* 强制走网络预缓存，避免 HTTP 磁盘缓存把旧资源塞进来 */
+      .then((cache) => Promise.all(
+        SHELL_ASSETS.map((url) =>
+          fetch(url, { cache: 'reload' })
+            .then((resp) => { if (resp && resp.ok) return cache.put(url, resp); })
+            .catch(() => {})
+        )
+      ))
       .then(() => self.skipWaiting())
   );
 });
