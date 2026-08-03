@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <!-- 移动端视口：覆盖刘海屏、禁双击缩放 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>宝可梦 AI 文字冒险</title>
+  <meta name="description" content="AI 驱动的宝可梦文字冒险：自由探索、捕捉宝可梦、书写属于你的故事" />
+
+  <!-- PWA -->
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <meta name="theme-color" content="#EAF4FF" />
+  <meta name="mobile-web-app-capable" content="yes" />
+
+  <!-- iOS  standalone -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="宝可梦冒险" />
+  <link rel="apple-touch-icon" href="./icons/icon-180.png" />
+
+  <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
+
+  <link rel="stylesheet" href="./assets/app.css?v=20260803" />
+  <link rel="stylesheet" href="./assets/mobile.css?v=20260803" />
+</head>
+<body>
+  <div id="root">
+    <!-- JS 加载期间的启动闪屏，React 渲染后自动替换 -->
+    <div class="boot-splash">
+      <div class="pokeball"></div>
+      <p>宝可梦 AI 文字冒险</p>
+    </div>
+  </div>
+  <!-- 内置 AI 配置：同步写入，确保主 bundle 挂载前 localStorage 已就绪，
+       避免首屏误显"需要配置 API"。仅当本机未配置过时写入，玩家在设置里改后以本机为准。 -->
+  <script>
+    (function () {
+      try {
+        if (localStorage.getItem('pka_ai_key')) return;
+        localStorage.setItem('pka_ai_baseurl', 'https://ctmoai.com/v1');
+        localStorage.setItem('pka_ai_key', 'sk-d74e80a1da0526368f729ebe3339eec614a4fa3be22ea4a98c4ca972db060a2e');
+        localStorage.setItem('pka_ai_model', 'gpt-5.5');
+      } catch (e) {}
+    })();
+  </script>
+  <script src="./assets/app.js"></script>
+  <script src="./pwa.js"></script>
+</body>
+</html>

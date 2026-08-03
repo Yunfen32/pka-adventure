@@ -1,0 +1,536 @@
+/* ============================================================
+ * 移动端优化 —— 宝可梦 AI 文字冒险
+ * 安全区适配 / 动态视口 / 触控优化 / iOS 细节修复
+ * ============================================================ */
+
+/* ---------- 1. 动态视口高度（iOS Safari 工具栏伸缩） ---------- */
+.app-shell,
+.story-page {
+  height: 100vh; /* 兜底 */
+  height: 100dvh;
+}
+.identity-screen {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* ---------- 2. 安全区适配（刘海屏 / 底部横条） ---------- */
+.top-toolbar {
+  padding-top: calc(10px + env(safe-area-inset-top, 0px));
+  padding-left: calc(16px + env(safe-area-inset-left, 0px));
+  padding-right: calc(16px + env(safe-area-inset-right, 0px));
+}
+.bottom-input {
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  padding-left: calc(16px + env(safe-area-inset-left, 0px));
+  padding-right: calc(16px + env(safe-area-inset-right, 0px));
+}
+.identity-screen {
+  padding-top: calc(24px + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+}
+
+/* ---------- 3. 触控体验 ---------- */
+html {
+  /* 禁用双击缩放延迟、保留捏合缩放语义由 meta 控制 */
+  touch-action: manipulation;
+  /* 禁止文本大小随旋转自动调整 */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+body {
+  /* 去除点击高亮 */
+  -webkit-tap-highlight-color: transparent;
+  /* 禁止下拉刷新误触（消息区内部滚动不受影响） */
+  overscroll-behavior-y: none;
+  /* 禁止长按弹出系统菜单影响游戏 */
+  -webkit-touch-callout: none;
+}
+.option-btn,
+button,
+.t-button {
+  touch-action: manipulation;
+  cursor: pointer;
+  /* 增大触控反馈 */
+  -webkit-user-select: none;
+  user-select: none;
+}
+.option-btn:active {
+  background: #fff0f0;
+  border-color: #ee1515;
+  transform: scale(0.985);
+}
+
+/* ---------- 4. iOS 输入框聚焦自动放大修复（字号 ≥16px 才不触发） ---------- */
+.bottom-input input,
+.t-input__inner,
+input,
+textarea {
+  font-size: 16px !important;
+}
+.bottom-input input {
+  /* 圆角在 iOS 上的默认样式清除 */
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: 10px;
+}
+
+/* ---------- 5. 滚动体验 ---------- */
+.message-area {
+  /* iOS 惯性滚动 */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+.story-content,
+.story-sidebar {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* ---------- 6. 小屏细节 ---------- */
+@media (max-width: 480px) {
+  .identity-screen h1 {
+    font-size: 1.6rem;
+  }
+  .identity-step {
+    padding: 20px;
+  }
+  .narrative-bubble {
+    max-width: 100%;
+    font-size: 0.98rem;
+  }
+  .options-bar {
+    max-width: 100%;
+  }
+  .pokemon-card {
+    max-width: 100%;
+  }
+  /* 故事章节页：侧栏改顶部横向滚动 */
+  .story-page {
+    flex-direction: column;
+  }
+  .story-sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid #e3dacb;
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 10px 12px;
+  }
+  .story-content {
+    padding: 16px;
+  }
+}
+
+/* ---------- 7. 横屏保护 ---------- */
+@media (max-height: 500px) and (orientation: landscape) {
+  .identity-screen {
+    justify-content: flex-start;
+  }
+}
+
+/* ---------- 8. 启动闪屏（JS 加载期间） ---------- */
+.boot-splash {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  gap: 18px;
+  background: #eaf4ff;
+}
+.boot-splash .pokeball {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(to bottom, #ee1515 0 48%, #2e2a24 48% 52%, #ffffff 52% 100%);
+  border: 3px solid #2e2a24;
+  position: relative;
+  animation: boot-spin 1.4s ease-in-out infinite;
+}
+.boot-splash .pokeball::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  transform: translate(-50%, -50%);
+  background: #ffffff;
+  border: 3px solid #2e2a24;
+  border-radius: 50%;
+}
+.boot-splash p {
+  color: #8a7f6e;
+  font-size: 0.9rem;
+  letter-spacing: 2px;
+}
+@keyframes boot-spin {
+  0%, 100% { transform: rotate(-12deg); }
+  50% { transform: rotate(12deg); }
+}
+
+/* ---------- 9. PWA 安装提示条 ---------- */
+.install-banner {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  z-index: 7000;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid #e3dacb;
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(74, 58, 44, 0.18);
+  font-size: 0.88rem;
+  color: #2e2a24;
+}
+.install-banner .ib-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+.install-banner .ib-text {
+  flex: 1;
+  line-height: 1.4;
+}
+.install-banner .ib-text strong {
+  display: block;
+  font-size: 0.92rem;
+}
+.install-banner button {
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 0.85rem;
+  font-family: inherit;
+}
+.install-banner .ib-install {
+  background: #ee1515;
+  color: #fff;
+}
+.install-banner .ib-close {
+  background: transparent;
+  color: #8a7f6e;
+  padding: 8px 6px;
+}
+
+/* ============================================================
+ * 10. 视觉主题层 —— 「精灵球 · 明亮冒险」
+ * ------------------------------------------------------------
+ * 设计方法：Anthropic frontend-design skill
+ * 方向：明亮卡通风（用户选定）。取材宝可梦自身世界——精灵球、
+ *   皮卡丘黄、深海蓝、属性色。天空白底 + 大圆角 + 柔和阴影。
+ * 大胆只花两处：① 叙事白卡左上角的「精灵球徽章」(signature)；
+ *   ② 主按钮/焦点的「皮卡丘黄聚焦环」。其余一律干净克制。
+ * 仅覆盖样式，不触碰已编译的 React bundle 结构与逻辑。
+ * ============================================================ */
+
+:root {
+  /* —— 主题色板（源自宝可梦自身世界） —— */
+  --pk-sky: #eaf4ff;           /* 天空底：页面背景 */
+  --pk-sky-2: #d8ebff;         /* 天空深一档：渐变尾 */
+  --pk-cloud: #ffffff;         /* 云白：卡片/气泡 */
+  --pk-ball: #ee1515;          /* 精灵球红：主强调 */
+  --pk-ball-dk: #c81010;       /* 精灵球红压深：按下态 */
+  --pk-navy: #1f3a5f;          /* 深海蓝：主文字（宝可梦招牌深蓝） */
+  --pk-sun: #ffcb05;           /* 皮卡丘黄：焦点/点缀 */
+  --pk-slate: #5b7089;         /* 石板蓝灰：次要文字 */
+  --pk-mint: #eaf7ee;          /* 薄荷淡底：成功/属性底 */
+  --pk-line: #cfe0f2;          /* 天蓝描边线 */
+
+  /* —— 覆盖 TDesign 令牌，让组件库自动跟随明亮主题 —— */
+  --td-bg-color-page: var(--pk-sky);
+  --td-bg-color-container: var(--pk-cloud);
+  --td-bg-color-container-hover: #f3f8ff;
+  --td-bg-color-container-active: #e9f2ff;
+  --td-brand-color: var(--pk-ball);
+  --td-brand-color-focus: var(--pk-ball);
+  --td-text-color-primary: var(--pk-navy);
+  --td-text-color-secondary: var(--pk-slate);
+  --td-text-color-placeholder: var(--pk-slate);
+  --td-border-level-2-color: var(--pk-line);
+}
+
+/* ---------- 底层：晴空渐变 ---------- */
+body {
+  background: var(--pk-sky);
+  color: var(--pk-navy);
+}
+.app-shell,
+.identity-screen,
+.story-page {
+  background:
+    radial-gradient(130% 90% at 50% -10%, #ffffff 0%, var(--pk-sky) 42%, var(--pk-sky-2) 100%);
+  color: var(--pk-navy);
+}
+
+/* ---------- 顶栏：云白玻璃 + 底部一线精灵球红 ---------- */
+.top-toolbar {
+  background: rgba(255, 255, 255, 0.85);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--pk-line);
+  box-shadow: 0 2px 0 rgba(238, 21, 21, 0.12);
+  color: var(--pk-navy);
+}
+.top-toolbar button {
+  color: var(--pk-navy);
+  font-weight: 600;
+}
+
+/* ---------- 叙事气泡：云白卡 + 精灵球徽章（signature） ---------- */
+.narrative-bubble {
+  position: relative;
+  background: var(--pk-cloud) !important;
+  color: var(--pk-navy) !important;
+  border: 1px solid var(--pk-line);
+  border-radius: 6px 18px 18px 18px;   /* 左上收角，像卡片翻起 */
+  box-shadow: 0 6px 18px rgba(31, 58, 95, 0.1);
+  padding-left: 22px;
+  line-height: 1.75;
+  letter-spacing: 0.2px;
+}
+/* signature：气泡左上角一颗精灵球徽章——它就是宝可梦本身，不是装饰 */
+.narrative-bubble::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 13px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  /* 上红下白 + 黑中缝：径向白心 + 线性红顶白底 */
+  background:
+    radial-gradient(circle at 50% 50%, #ffffff 0 2.2px, #2b2b2b 2.2px 3.2px, transparent 3.2px),
+    linear-gradient(to bottom, var(--pk-ball) 0 45%, #2b2b2b 45% 55%, #ffffff 55% 100%);
+  border: 1.5px solid #2b2b2b;
+  box-shadow: 0 1px 3px rgba(31, 58, 95, 0.25);
+  animation: pka-signal 2.6s ease-in-out infinite;
+}
+@keyframes pka-signal {
+  0%, 100% { transform: scale(0.94); }
+  50%      { transform: scale(1.08); }
+}
+
+/* 玩家自己的发言：右对齐、精灵球红描边，与叙事区分 */
+.message-area .t-chat__inner--user .narrative-bubble,
+.narrative-bubble.is-user,
+.user-bubble {
+  background: rgba(238, 21, 21, 0.08) !important;
+  border-color: rgba(238, 21, 21, 0.35);
+  border-radius: 18px 6px 18px 18px;
+}
+.message-area .t-chat__inner--user .narrative-bubble::before,
+.user-bubble::before {
+  display: none;
+}
+
+/* ---------- 选项按钮：云白胶囊，hover 天蓝、按下精灵球红 ---------- */
+.option-btn,
+.options-bar button {
+  background: var(--pk-cloud) !important;
+  color: var(--pk-navy) !important;
+  border: 1.5px solid var(--pk-line) !important;
+  border-radius: 14px !important;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(31, 58, 95, 0.06);
+  transition: border-color 0.16s ease, background 0.16s ease, transform 0.1s ease, box-shadow 0.16s ease;
+}
+.option-btn:hover,
+.options-bar button:hover {
+  border-color: #7fb2ec !important;
+  background: #f3f8ff !important;
+  box-shadow: 0 4px 12px rgba(31, 58, 95, 0.12);
+}
+.option-btn:active,
+.options-bar button:active {
+  background: rgba(238, 21, 21, 0.1) !important;
+  border-color: var(--pk-ball) !important;
+  transform: scale(0.985);
+}
+/* 皮卡丘黄聚焦环——键盘可达性 + 宝可梦「电」的一抹点缀 */
+.option-btn:focus-visible,
+.options-bar button:focus-visible,
+.bottom-input input:focus-visible,
+.option-write input:focus-visible {
+  outline: 3px solid var(--pk-sun);
+  outline-offset: 1px;
+}
+/* 自定义行动输入框：选项列表最后一项，可自由输入下一步 */
+.option-write {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  border: 1.5px dashed #f0a800 !important;
+  border-radius: 14px;
+  background: rgba(255, 203, 5, 0.1) !important;
+  padding: 6px 6px 6px 14px;
+}
+.option-write input {
+  flex: 1;
+  min-width: 0;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  color: var(--pk-navy) !important;
+  font-size: 16px !important;
+  font-family: inherit;
+}
+.option-write input::placeholder {
+  color: #b07d00;
+}
+.option-write .option-btn-write {
+  flex: none;
+  border: 1.5px solid #f0a800 !important;
+  color: #9a6a00 !important;
+  background: var(--pk-sun) !important;
+  padding: 8px 14px;
+  font-size: 0.9rem;
+  box-shadow: 0 2px 6px rgba(240, 168, 0, 0.35) !important;
+}
+.option-write .option-btn-write:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.option-write .option-btn-write:active {
+  background: #f0a800 !important;
+  transform: scale(0.97);
+}
+
+/* ---------- 宝可梦卡片：图鉴条目卡，天蓝描边 + 立绘微光底座 ---------- */
+.pokemon-card {
+  background: linear-gradient(165deg, #ffffff, #f0f7ff) !important;
+  border: 1.5px solid var(--pk-line) !important;
+  border-radius: 16px;
+  box-shadow: 0 8px 22px rgba(31, 58, 95, 0.12);
+  color: var(--pk-navy) !important;
+}
+.pokemon-card .sprite-area {
+  background: radial-gradient(circle at 50% 45%, rgba(255, 203, 5, 0.22), transparent 62%);
+  border-radius: 14px;
+}
+.pokemon-card img {
+  filter: drop-shadow(0 4px 10px rgba(31, 58, 95, 0.2));
+}
+.pokemon-card .name {
+  color: var(--pk-navy) !important;
+  font-weight: 700;
+}
+
+/* ---------- 底部输入区：云白托盘 + 精灵球红发送键 ---------- */
+.bottom-input {
+  background: rgba(255, 255, 255, 0.92);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid var(--pk-line);
+}
+.bottom-input input,
+.bottom-input .t-input__inner {
+  background: #f4f9ff !important;
+  color: var(--pk-navy) !important;
+  border: 1.5px solid var(--pk-line) !important;
+}
+.bottom-input input::placeholder {
+  color: var(--pk-slate) !important;
+}
+
+/* 品牌主按钮（出发 / 发送 / 确认）：精灵球红 */
+.t-button--theme-primary,
+.identity-screen .t-button--theme-primary {
+  background: var(--pk-ball) !important;
+  border-color: var(--pk-ball) !important;
+  color: #fff !important;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(238, 21, 21, 0.32);
+}
+.t-button--theme-primary:hover {
+  background: #f52a2a !important;
+}
+.t-button--theme-primary:active {
+  background: var(--pk-ball-dk) !important;
+  filter: none;
+}
+
+/* ---------- 建角界面：云白卡片 + 标题深海蓝 ---------- */
+.identity-screen h1 {
+  color: var(--pk-navy);
+  letter-spacing: 3px;
+  /* 覆盖原赤陶渐变文字，改为深海蓝 → 精灵球红渐变 */
+  background-image: linear-gradient(135deg, var(--pk-navy) 0%, var(--pk-ball) 100%) !important;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.identity-step,
+.identity-screen .t-card {
+  background: var(--pk-cloud) !important;
+  border: 1.5px solid var(--pk-line) !important;
+  color: var(--pk-navy) !important;
+  box-shadow: 0 10px 30px rgba(31, 58, 95, 0.12);
+}
+
+/* ---------- 补全：玩家气泡 / 属性标签 / 故事页 / 加载点 / 说明文字 ---------- */
+/* 玩家发言：精灵球红淡底右对齐，与叙事白卡区分 */
+.player-bubble {
+  background: rgba(238, 21, 21, 0.08) !important;
+  border: 1.5px solid rgba(238, 21, 21, 0.35) !important;
+  color: var(--pk-navy) !important;
+}
+/* 属性标签保留 TDesign 的属性色（火=红/水=蓝…），仅确保可读 —— 不改 */
+
+/* 故事回顾页：侧栏与正文一并明亮化 */
+.story-sidebar {
+  background: rgba(255, 255, 255, 0.92) !important;
+  border-right: 1px solid var(--pk-line) !important;
+  color: var(--pk-navy);
+}
+.story-content {
+  color: var(--pk-navy);
+}
+
+/* 说明性小字：石板蓝灰 */
+.desc {
+  color: var(--pk-slate) !important;
+}
+
+/* 加载动画圆点：精灵球红 */
+.loading-dots span {
+  background: var(--pk-ball) !important;
+}
+
+/* 分隔线/边框统一天蓝描边（覆盖散落的暖褐描边） */
+.narrative-bubble,
+.top-toolbar,
+.bottom-input,
+.story-sidebar {
+  border-color: var(--pk-line) !important;
+}
+
+/* ---------- 启动闪屏：晴空渐变，避免加载瞬间白闪 ---------- */
+.boot-splash {
+  background: linear-gradient(160deg, #ffffff 0%, var(--pk-sky) 55%, var(--pk-sky-2) 100%);
+}
+.boot-splash p {
+  color: var(--pk-navy);
+}
+
+/* ---------- 质量底线：尊重「减少动态效果」偏好 ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .narrative-bubble::before {
+    animation: none;
+    opacity: 0.9;
+  }
+  .option-btn,
+  .options-bar button {
+    transition: none;
+  }
+}

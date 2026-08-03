@@ -1,0 +1,7 @@
+# Capacitor 原生壳配置（仅 APK 用，网页部署无关）
+capacitor-app/
+
+# 系统/编辑器
+.DS_Store
+Thumbs.db
+*~

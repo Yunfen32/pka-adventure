@@ -1,0 +1,5 @@
+{
+  "baseURL": "https://ctmoai.com/v1",
+  "apiKey": "sk-d74e80a1da0526368f729ebe3339eec614a4fa3be22ea4a98c4ca972db060a2e",
+  "model": "gpt-5.5"
+}
