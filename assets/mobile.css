@@ -534,3 +534,193 @@ body {
     transition: none;
   }
 }
+
+/* ============================================================
+ * 11. 漫画分镜插画功能样式
+ * ============================================================ */
+
+/* ---------- 插画容器：图+文组合 ---------- */
+.narrative-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.narrative-illust {
+  width: 100%;
+  max-width: 100%;
+  border-radius: 1rem;
+  box-shadow: 0 4px 12px rgba(238, 21, 21, 0.15);
+  animation: fadeIn 0.6s ease-out;
+  background: linear-gradient(135deg, var(--pk-sky), #fef5e7);
+  object-fit: cover;
+  aspect-ratio: 16 / 9;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 插画加载失败时隐藏 */
+.narrative-illust[style*="display: none"] {
+  display: none !important;
+}
+
+/* ---------- 底部工具栏：6 按钮网格 ---------- */
+.toolbar {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.5rem;
+  padding: 1rem;
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  background: rgba(255, 255, 255, 0.92);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid var(--pk-line);
+}
+
+.toolbar-btn {
+  aspect-ratio: 1;
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg, var(--pk-sky), #e8f5e9);
+  border: 2px solid var(--pk-ball);
+  font-size: 1.5rem;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 6px rgba(31, 58, 95, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.toolbar-btn:hover {
+  box-shadow: 0 4px 12px rgba(238, 21, 21, 0.2);
+}
+
+.toolbar-btn:active {
+  transform: scale(0.92);
+}
+
+.toolbar-btn.active {
+  background: linear-gradient(135deg, var(--pk-ball), #c81010);
+  color: white;
+  box-shadow: 0 4px 14px rgba(238, 21, 21, 0.35);
+}
+
+/* ---------- 漫画长廊卡片 ---------- */
+.comic-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.comic-card {
+  border-radius: 1rem;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: var(--pk-cloud);
+  cursor: pointer;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.comic-card:hover {
+  box-shadow: 0 4px 16px rgba(238, 21, 21, 0.2);
+  transform: translateY(-2px);
+}
+
+.comic-card img {
+  width: 100%;
+  display: block;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: linear-gradient(135deg, var(--pk-sky), #fef5e7);
+}
+
+.comic-excerpt {
+  padding: 0.75rem;
+  color: var(--pk-slate);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* 漫画全屏查看对话框 */
+.comic-fullview {
+  max-width: 90vw;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.comic-fullview img {
+  width: 100%;
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.comic-fullview-text {
+  color: var(--pk-navy);
+  line-height: 1.75;
+  font-size: 1rem;
+}
+
+/* ---------- 图鉴 vs 同行面板区分 ---------- */
+.panel-pokedex .pokemon-card {
+  border: 2px solid var(--pk-sky) !important;
+}
+
+.panel-pokedex .panel-title::before {
+  content: "📕 ";
+}
+
+.panel-team .pokemon-card {
+  border: 2px solid var(--pk-ball) !important;
+}
+
+.panel-team .panel-title::before {
+  content: "⚡ ";
+}
+
+/* 空状态提示 */
+.panel-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--pk-slate);
+}
+
+.panel-empty::before {
+  content: "✨";
+  display: block;
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+/* ---------- 小屏适配 ---------- */
+@media (max-width: 480px) {
+  .toolbar {
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0.4rem;
+    padding: 0.75rem 0.5rem;
+  }
+
+  .toolbar-btn {
+    font-size: 1.3rem;
+  }
+
+  .comic-gallery {
+    grid-template-columns: 1fr;
+  }
+
+  .narrative-illust {
+    border-radius: 0.75rem;
+  }
+}
