@@ -10,7 +10,7 @@
      避免 SW 以固定缓存名缓存旧外壳导致升级后内容不刷新 */
   if ('serviceWorker' in navigator && !window.Capacitor) {
     window.addEventListener('load', function () {
-    navigator.serviceWorker.register('./sw.js?v=20260812-layout-b').catch(function () {
+    navigator.serviceWorker.register('./sw.js?v=20260813-continuity-a').catch(function () {
         /* 注册失败（如 file:// 环境）不影响游戏 */
       });
     });

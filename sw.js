@@ -7,7 +7,7 @@
  *   - AI API（POST）：不拦截，直接走网络
  * ============================================================ */
 
-const VERSION = 'pka-v3-layout-20260812-b';
+const VERSION = 'pka-v3-continuity-20260813-a';
 const SHELL_CACHE = `${VERSION}-shell`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 

@@ -9,14 +9,14 @@
 
   const root = document.getElementById('root');
   const APP_VERSION = '3.0.0-rpg';
-  const SETTINGS_KEY = 'pka_ai_config_v2';
+  const SETTINGS_KEY = 'pka_ai_config_v3';
   const AUTOSAVE_KEY = 'pka_autosave_v2';
   const SAVE_PREFIX = 'pka_save_v2_';
   const BUILTIN_CONFIG = {
-    baseURL: 'https://open.bigmodel.cn/api/paas/v4',
-    apiKey: '316830467d0546a4a7a0902b838f9780.kqbFeID2E9IYHzne',
-    model: 'glm-4.7-flash',
-    imageModel: 'cogview-3-flash',
+    baseURL: 'https://apihub.agnes-ai.com/v1',
+    apiKey: 'sk-r0GcH1YJo8s8zdyE1CWEAO4GDEGf5tr3teRgiLUNzlnt8mpB',
+    model: 'agnes-2.5-flash',
+    imageModel: 'agnes-image-2.1-flash',
     images: true
   };
   const pokemonCache = new Map();
@@ -85,12 +85,13 @@
 
   function getSettings() {
     const saved = readJson(SETTINGS_KEY, {});
-    const hasSavedApiKey = Object.prototype.hasOwnProperty.call(saved, 'apiKey');
+    const isLegacyBigModel = String(saved.baseURL || '').indexOf('open.bigmodel.cn') >= 0;
+    const hasSavedApiKey = Object.prototype.hasOwnProperty.call(saved, 'apiKey') && !isLegacyBigModel;
     return {
-      baseURL: normalizeBaseUrl(saved.baseURL || BUILTIN_CONFIG.baseURL),
+      baseURL: normalizeBaseUrl(isLegacyBigModel ? BUILTIN_CONFIG.baseURL : (saved.baseURL || BUILTIN_CONFIG.baseURL)),
       apiKey: hasSavedApiKey ? String(saved.apiKey || '') : BUILTIN_CONFIG.apiKey,
-      model: String(saved.model || BUILTIN_CONFIG.model),
-      imageModel: String(saved.imageModel || BUILTIN_CONFIG.imageModel),
+      model: String(isLegacyBigModel ? BUILTIN_CONFIG.model : (saved.model || BUILTIN_CONFIG.model)),
+      imageModel: String(isLegacyBigModel ? BUILTIN_CONFIG.imageModel : (saved.imageModel || BUILTIN_CONFIG.imageModel)),
       images: saved.images !== false,
       theme: saved.theme === 'night' ? 'night' : 'light'
     };
@@ -100,8 +101,8 @@
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({
       baseURL: normalizeBaseUrl(settings.baseURL),
       apiKey: String(settings.apiKey || ''),
-      model: String(settings.model || 'gpt-4o-mini'),
-      imageModel: String(settings.imageModel || 'gpt-image-1'),
+      model: String(settings.model || BUILTIN_CONFIG.model),
+      imageModel: String(settings.imageModel || BUILTIN_CONFIG.imageModel),
       images: settings.images !== false,
       theme: settings.theme === 'night' ? 'night' : 'light'
     }));
@@ -200,6 +201,22 @@
       backstory: randomChoice(['刚从研究所领取旅行许可', '刚结束一段短暂的家庭旅行', '带着一本旧图鉴踏上旅途', '在清晨收到了一封没有署名的信', '为了寻找失落的纪念品离开家乡'])
     };
     return { regionKey: regionKey, hometown: identity.hometown, identity: identity };
+  }
+
+  function createRandomOpeningAction() {
+    const region = regionData();
+    const hometown = state.location || (state.identity && state.identity.hometown) || randomChoice(region.towns || ['真新镇']);
+    const route = randomChoice(region.routes || []);
+    const landmark = randomChoice(region.landmarks || []);
+    const openingBeats = [
+      '清晨在' + hometown + '整理背包，沿着通往' + route + '的路牌正式出发。',
+      '在' + hometown + '的宝可梦中心外发现一张被露水打湿的便签，决定顺着线索调查。',
+      '从' + hometown + '的研究所门前出发，记录一段来自' + route + '方向的陌生环境声。',
+      '在' + hometown + '边缘停下脚步，翻开旧地图，准备寻找通往' + landmark + '的安全路线。',
+      '午后的' + hometown + '忽然起风，决定先观察街道与远方' + route + '的天气变化。',
+      '带着刚领到的旅行许可走出' + hometown + '，把前往' + route + '的第一段路写进图鉴笔记。'
+    ];
+    return '【随机开场】' + randomChoice(openingBeats);
   }
 
   function currentTurn() {
@@ -373,17 +390,23 @@
   }
 
   function dialogFrame(title, content, wide) {
-    return '<div class="dialog-backdrop" data-action="close-dialog"><section class="dialog-card ' + (wide ? 'dialog-wide' : '') + '" role="dialog" aria-modal="true" aria-label="' + escapeHtml(title) + '" data-dialog-card><div class="dialog-head"><div><span class="eyebrow">' + escapeHtml(title) + '</span><h2>' + escapeHtml(title) + '</h2></div><button class="icon-button" data-action="close-dialog" aria-label="关闭">' + icon('close') + '</button></div>' + content + '</section></div>';
+    return '<div class="dialog-backdrop" data-action="close-dialog"><section class="dialog-card ' + (wide ? 'dialog-wide ' : '') + (title === '创建角色' ? 'identity-dialog' : '') + '" role="dialog" aria-modal="true" aria-label="' + escapeHtml(title) + '" data-dialog-card><div class="dialog-head"><div><span class="eyebrow">' + escapeHtml(title) + '</span><h2>' + escapeHtml(title) + '</h2></div><button class="icon-button" data-action="close-dialog" aria-label="关闭">' + icon('close') + '</button></div>' + content + '</section></div>';
   }
 
   function renderIdentityDialog() {
-    const content = '<form class="dialog-form" data-form="identity"><p class="dialog-note">只需要告诉我你的姓名和性别，冒险地区、故乡、年龄与训练风格会在生成档案时随机决定。</p><label>训练师名称<input name="name" maxlength="12" required placeholder="输入你的名字" autocomplete="nickname" /></label><label>性别<select name="gender" required><option value="unspecified">不指定</option><option value="male">男</option><option value="female">女</option></select></label><div class="dialog-actions"><button class="secondary-button" type="button" data-action="close-dialog">取消</button><button class="primary-button" type="submit">生成训练师档案 ' + icon('arrow') + '</button></div></form>';
+    const content = '<form class="dialog-form identity-form" data-form="identity">' +
+      '<div class="identity-intro"><div class="identity-badge">' + icon('profile') + '</div><div><strong>建立你的训练师档案</strong><span>只填写姓名和性别，其余设定交给随机旅程。</span></div></div>' +
+      '<p class="dialog-note">冒险地区、故乡、年龄、外观、性格与旅行目标会在创建时随机决定。你的选择会从第一回合开始影响故事。</p>' +
+      '<div class="identity-fields"><label class="dialog-field"><span>训练师姓名</span><small>最多 12 个字</small><input name="name" maxlength="12" required placeholder="输入你的名字" autocomplete="nickname" /></label><label class="dialog-field"><span>性别</span><small>用于角色叙事</small><select name="gender" required><option value="unspecified">不指定</option><option value="male">男</option><option value="female">女</option></select></label></div>' +
+      '<div class="identity-random-note"><span class="identity-random-icon">' + icon('spark') + '</span><div><strong>随机档案</strong><span>地区 · 故乡 · 年龄 · 训练风格</span></div><b>自动生成</b></div>' +
+      '<div class="dialog-actions identity-actions"><button class="secondary-button" type="button" data-action="close-dialog"><span>取消</span></button><button class="primary-button identity-submit" type="submit"><span>生成档案</span><small>开始冒险</small>' + icon('arrow') + '</button></div>' +
+      '</form>';
     return dialogFrame('创建角色', content);
   }
 
   function renderSettingsDialog() {
     const config = getSettings();
-    const content = '<form class="dialog-form" data-form="settings"><p class="dialog-note">当前已内置免费兼容接口，打开网页即可使用；你也可以在这里替换为自己的接口和模型。</p><label>API Base URL<input name="baseURL" value="' + escapeHtml(config.baseURL) + '" placeholder="https://open.bigmodel.cn/api/paas/v4" /></label><label>API Key<input name="apiKey" type="password" placeholder="' + (config.apiKey ? '已内置或已保存，留空保持不变' : '填写你的 API Key') + '" autocomplete="off" /></label><label>文字模型<input name="model" value="' + escapeHtml(config.model) + '" placeholder="glm-4.7-flash" /></label><label>插图模型<input name="imageModel" value="' + escapeHtml(config.imageModel) + '" placeholder="cogview-3-flash" /></label><label class="switch-row"><span>每回合生成动漫插图</span><input name="images" type="checkbox" ' + (config.images ? 'checked' : '') + ' /><span class="switch-ui"></span></label><div class="dialog-actions"><button class="text-button danger-text" type="button" data-action="clear-api-key">清除 API Key</button><button class="primary-button" type="submit">保存设置 ' + icon('check') + '</button></div></form>';
+    const content = '<form class="dialog-form" data-form="settings"><p class="dialog-note">当前已切换到 Agnes AI OpenAI 兼容接口，也可以在这里替换为其它兼容服务。</p><label>API Base URL<input name="baseURL" value="' + escapeHtml(config.baseURL) + '" placeholder="https://apihub.agnes-ai.com/v1" /></label><label>API Key<input name="apiKey" type="password" placeholder="' + (config.apiKey ? '已内置或已保存，留空保持不变' : '填写你的 API Key') + '" autocomplete="off" /></label><label>文字模型<input name="model" value="' + escapeHtml(config.model) + '" placeholder="agnes-2.5-flash" /></label><label>插图模型<input name="imageModel" value="' + escapeHtml(config.imageModel) + '" placeholder="agnes-image-2.1-flash" /></label><label class="switch-row"><span>每回合生成动漫插图</span><input name="images" type="checkbox" ' + (config.images ? 'checked' : '') + ' /><span class="switch-ui"></span></label><div class="dialog-actions"><button class="text-button danger-text" type="button" data-action="clear-api-key">清除 API Key</button><button class="primary-button" type="submit">保存设置 ' + icon('check') + '</button></div></form>';
     return dialogFrame('AI 设置', content);
   }
 
@@ -400,7 +423,7 @@
 
   function renderSettingsDialog() {
     var config = getSettings();
-    var content = '<form class="dialog-form" data-form="settings"><p class="dialog-note">当前已内置免费兼容接口，打开网页即可使用；你也可以在这里替换为自己的接口和模型。</p><label>API Base URL<input name="baseURL" value="' + escapeHtml(config.baseURL) + '" placeholder="https://open.bigmodel.cn/api/paas/v4" /></label><label>API Key<input name="apiKey" type="password" placeholder="' + (config.apiKey ? '已内置或已保存，留空保持不变' : '填写你的 API Key') + '" autocomplete="off" /></label><label>文字模型<input name="model" value="' + escapeHtml(config.model) + '" placeholder="glm-4.7-flash" /></label><label>插图模型<input name="imageModel" value="' + escapeHtml(config.imageModel) + '" placeholder="cogview-3-flash" /></label><label class="switch-row"><span>每回合生成动漫插图</span><input name="images" type="checkbox" ' + (config.images ? 'checked' : '') + ' /><span class="switch-ui"></span></label><label class="switch-row"><span>夜间阅读模式</span><input name="theme" value="night" type="checkbox" ' + (config.theme === 'night' ? 'checked' : '') + ' /><span class="switch-ui"></span></label><div class="dialog-actions"><button class="text-button danger-text" type="button" data-action="clear-api-key">清除 API Key</button><button class="primary-button" type="submit">保存设置 ' + icon('check') + '</button></div></form>';
+    var content = '<form class="dialog-form" data-form="settings"><p class="dialog-note">当前已切换到 Agnes AI OpenAI 兼容接口，也可以在这里替换为其它兼容服务。</p><label>API Base URL<input name="baseURL" value="' + escapeHtml(config.baseURL) + '" placeholder="https://apihub.agnes-ai.com/v1" /></label><label>API Key<input name="apiKey" type="password" placeholder="' + (config.apiKey ? '已内置或已保存，留空保持不变' : '填写你的 API Key') + '" autocomplete="off" /></label><label>文字模型<input name="model" value="' + escapeHtml(config.model) + '" placeholder="agnes-2.5-flash" /></label><label>插图模型<input name="imageModel" value="' + escapeHtml(config.imageModel) + '" placeholder="agnes-image-2.1-flash" /></label><label class="switch-row"><span>每回合生成动漫插图</span><input name="images" type="checkbox" ' + (config.images ? 'checked' : '') + ' /><span class="switch-ui"></span></label><label class="switch-row"><span>夜间阅读模式</span><input name="theme" value="night" type="checkbox" ' + (config.theme === 'night' ? 'checked' : '') + ' /><span class="switch-ui"></span></label><div class="dialog-actions"><button class="text-button danger-text" type="button" data-action="clear-api-key">清除 API Key</button><button class="primary-button" type="submit">保存设置 ' + icon('check') + '</button></div></form>';
     return dialogFrame('AI 设置', content);
   }
 
@@ -460,6 +483,9 @@
     activeDialog = null;
     persistState();
     render();
+    window.setTimeout(function () {
+      submitAction(createRandomOpeningAction());
+    }, 0);
   }
 
   function addMessage(role, content) {
@@ -485,10 +511,12 @@
   }
 
   function buildMessages(action) {
-    const context = state.messages.slice(-10).map(function (message) {
+    const context = state.messages.slice(-8).map(function (message) {
       return { role: message.role, content: message.content };
     });
-    context.push({ role: 'user', content: action });
+    if (!context.length || context[context.length - 1].role !== 'user' || context[context.length - 1].content !== action) {
+      context.push({ role: 'user', content: action });
+    }
     return [{ role: 'system', content: buildSystemPrompt() }].concat(context);
   }
 
@@ -644,7 +672,7 @@
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + config.apiKey },
-      body: JSON.stringify({ model: config.imageModel || 'gpt-image-1', prompt: '宝可梦风格的原创日式动画冒险插图，漫画分镜构图，色彩鲜明，角色表情清晰，适合移动端竖屏展示。不要文字、不要水印、不要复刻具体官方角色。' + prompt })
+      body: JSON.stringify({ model: config.imageModel || 'agnes-image-2.1-flash', prompt: '宝可梦风格的原创日式动画冒险插图，漫画分镜构图，色彩鲜明，角色表情清晰，适合移动端竖屏展示。不要文字、不要水印、不要复刻具体官方角色。' + prompt, size: '2:3' })
     });
     if (!response.ok) throw new Error('插图模型暂不支持或请求失败');
     const data = await response.json();
@@ -1039,14 +1067,18 @@
     var worldContext = window.PkaWorld ? window.PkaWorld.promptContext(state.region) : '';
     var identity = state.identity || {};
     var seen = state.pokemon.map(function (pokemon) { return pokemon.name; }).filter(Boolean).join('、') || '暂无';
-    var party = state.party.map(function (id) { var pokemon = getPokemonRecord(id); return pokemon && pokemon.name; }).filter(Boolean).join('、') || '暂无';
-    var companions = state.companions.map(function (companion) { return companion.name; }).filter(Boolean).join('、') || '暂无';
+    var party = state.party.map(function (id) { var pokemon = getPokemonRecord(id); return pokemon && pokemon.name + ' Lv.' + (pokemon.level || 1) + ' HP ' + (pokemon.hp || 0) + '/' + (pokemon.maxHp || 10); }).filter(Boolean).join('、') || '暂无';
+    var companions = state.companions.map(function (companion) { return companion.name + '（关系值 ' + (state.relationships[companion.name] || 0) + '）'; }).filter(Boolean).join('、') || '暂无';
     var encounter = state.activeEncounter ? state.activeEncounter.name + '（等级 ' + state.activeEncounter.level + '）' : '暂无';
+    var continuity = buildContinuityContext();
+    var activeQuests = state.quests.filter(function (quest) { return !quest.completed; }).map(function (quest) { return quest.title + ' ' + quest.progress + '/' + quest.target; }).join('、') || '暂无';
+    var completedQuests = state.completedQuests.length ? state.completedQuests.join('、') : '暂无';
     return '你是原创宝可梦风格冒险漫画的分镜导演和叙事者。每个回合必须是可视化的漫画分镜，而不是一段普通短文。\n\n' +
       '玩家：' + (identity.name || '训练师') + '；性别：' + (identity.gender || '未指定') + '；年龄：' + (identity.age || '未知') + '；地区：' + region.name + '；故乡：' + (identity.hometown || '未知') + '；地点：' + (state.location || '未知地点') + '\n' +
       '训练风格：' + (identity.personality || '未知') + '；外观：' + (identity.appearance || '由故事决定') + '；当前目标：' + (identity.goal || '寻找属于自己的冒险') + '；出发背景：' + (identity.backstory || '刚刚踏上旅途') + '\n' +
       '同行宝可梦：' + party + '；已遇宝可梦：' + seen + '；同行伙伴：' + companions + '；当前遭遇：' + encounter + '\n' +
-      '背包：' + JSON.stringify(state.inventory) + '；回合：' + state.turns + '\n\n' +
+      '背包：' + JSON.stringify(state.inventory) + '；进行中的任务：' + activeQuests + '；已完成任务：' + completedQuests + '；回合：' + state.turns + '\n\n' +
+      '【故事连续性档案】\n' + continuity + '\n\n' +
       '本回合必须遵守的世界观资料：' + worldContext + '\n\n' +
       '输出要求：\n' +
       '1. 输出4到6格分镜，总中文叙事约500到900字；每格包含标题、镜头类型、画面构图、动作、环境、情绪、对白、音效和imagePrompt。\n' +
@@ -1055,9 +1087,44 @@
       '4. 遭遇只从1到1025的宝可梦编号中选择；pokemonId是唯一准确信息，name必须填写该编号对应的中文名，trigger只能是story、sound、trace、quest、location或battle。\n' +
       '5. 不要连续两个回合生成新的宝可梦；普通回合优先描写探索、训练、伙伴互动和环境变化。\n' +
       '6. illustrationPrompt描述整页漫画，不要文字、水印、官方角色复刻；保持玩家、队伍、伙伴、地点的视觉连续性，并使用与encounter相同的宝可梦中文名、类型和视觉特征。\n' +
-      '7. 主角、伙伴和主线原创，不直接复刻官方动画角色；不要创造新的属性类型、道具、地区或地点。\n' +
-      '8. 返回纯JSON，不要Markdown围栏。\n\n' +
+      '7. 必须承接故事连续性档案：保留玩家姓名、性别、外观、性格、目标、已经发生的事件、关系变化和地点因果；不要重新介绍已经完成的出发，不要无理由重置人物、队伍、道具或任务。\n' +
+      '8. 先从最近一回合的结尾继续，再根据玩家本回合行动推进新的变化；如果历史中已经出现某个伙伴或宝可梦，优先让其保持一致，不要无理由替换。\n' +
+      '9. 主角、伙伴和主线原创，不直接复刻官方动画角色；不要创造新的属性类型、道具、地区或地点。\n' +
+      '10. 返回纯JSON，不要Markdown围栏。\n\n' +
       '{"panels":[{"title":"镜头标题","shot":"远景","composition":"画面构图","action":"角色动作","text":"叙事与环境","dialogue":"对白","sfx":"音效","imagePrompt":"画面提示"}],"options":["观察周围","继续前进"],"illustrationPrompt":"整页插图提示","events":{"encounter":{"pokemonId":null,"name":"对应的中文名","trigger":"story","level":3,"mood":"警觉"},"pokemonSeen":null,"location":null,"itemGained":null,"companionMet":null}}';
+  }
+
+  function buildContinuityContext() {
+    var boards = Array.isArray(state.storyboards) ? state.storyboards.filter(function (turn) { return turn && (turn.panels || turn.playerAction); }) : [];
+    if (!boards.length) return '这是第一回合，必须从训练师档案中的出发背景开始，不要假设玩家已经遇到过其他人物或宝可梦。';
+
+    function compactEvents(turn) {
+      var outcomes = Array.isArray(turn.outcomes) ? turn.outcomes.filter(Boolean).join('；') : '';
+      var eventNames = Array.isArray(turn.events) ? turn.events.map(function (event) {
+        if (!event || !event.type) return '';
+        if (event.type === 'encounter' && event.encounter) return 'encounter:' + (event.encounter.pokemonId || 'unknown');
+        if (event.type === 'location') return 'location:' + (event.value || '');
+        if (event.type === 'companion' && event.value) return 'companion:' + (event.value.name || '');
+        if (event.type === 'capture') return 'capture:' + (event.outcome || '');
+        return event.type;
+      }).filter(Boolean).join('、') : '';
+      return [outcomes, eventNames].filter(Boolean).join('；').slice(0, 220);
+    }
+
+    function panelText(turn, limit) {
+      return (turn.panels || []).map(function (panel) { return panel && panel.text ? panel.text : ''; }).filter(Boolean).join(' ').replace(/\s+/g, '').slice(0, limit);
+    }
+
+    var recentStart = Math.max(0, boards.length - 6);
+    var older = boards.slice(0, recentStart).map(function (turn) {
+      return '第' + Number(turn.turn || 0) + '回合：地点' + (turn.location || '未知') + '；行动' + (turn.playerAction || '未知') + '；' + panelText(turn, 120) + (compactEvents(turn) ? '；结果' + compactEvents(turn) : '');
+    }).join('\n').slice(0, 3600);
+    var recent = boards.slice(recentStart).map(function (turn) {
+      return '第' + Number(turn.turn || 0) + '回合：地点' + (turn.location || '未知') + '；玩家行动：' + (turn.playerAction || '未知') + '；分镜：' + panelText(turn, 560) + (compactEvents(turn) ? '；已确认结果：' + compactEvents(turn) : '');
+    }).join('\n');
+
+    return (older ? '较早主线摘要（只作为已发生事实，不要覆盖最近内容）：\n' + older + '\n' : '') +
+      '最近分镜（必须从最后一回合的结尾接续）：\n' + recent.slice(0, 5200);
   }
 
   function normalizeEvents(events) {
@@ -1210,7 +1277,7 @@
     var controller = new AbortController();
     var timer = setTimeout(function () { controller.abort(); }, 90000);
     try {
-      var response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + config.apiKey }, body: JSON.stringify({ model: config.imageModel || 'cogview-3-flash', prompt: '原创宝可梦式怪兽伙伴日式动画冒险插图，整页漫画构图，纸张印刷质感，鲜艳色彩，粗线条，角色与伙伴保持连续。不要文字、不要水印、不要复刻具体官方角色。' + prompt }), signal: controller.signal });
+      var response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + config.apiKey }, body: JSON.stringify({ model: config.imageModel || 'agnes-image-2.1-flash', prompt: buildIllustrationPrompt(prompt), size: '2:3' }), signal: controller.signal });
       if (!response.ok) throw new Error('插图模型暂不支持或请求失败');
       var data = await response.json();
       var image = data && data.data && data.data[0];
@@ -1221,6 +1288,20 @@
     } finally {
       clearTimeout(timer);
     }
+  }
+
+  function buildIllustrationPrompt(prompt) {
+    var identity = state.identity || {};
+    var party = state.party.map(function (id) { var pokemon = getPokemonRecord(id); return pokemon && pokemon.name + ' Lv.' + (pokemon.level || 1); }).filter(Boolean).join('、') || '暂无同行宝可梦';
+    var companions = state.companions.map(function (companion) { return companion.name; }).filter(Boolean).join('、') || '暂无同行伙伴';
+    var region = regionData();
+    return '原创宝可梦式怪兽伙伴日式动画冒险插图，整页漫画构图，纸张印刷质感，鲜艳色彩，粗线条。' +
+      '必须保持角色和故事连续：训练师“' + (identity.name || '训练师') + '”，性别“' + (identity.gender || '未指定') + '”，' +
+      '外观设定“' + (identity.appearance || '按角色档案保持一致') + '”，性格“' + (identity.personality || '按角色档案保持一致') + '”；' +
+      '当前地区“' + region.name + '”，当前地点“' + (state.location || '未知地点') + '”；' +
+      '同行宝可梦“' + party + '”，同行伙伴“' + companions + '”。' +
+      '本回合剧情与画面要求：' + String(prompt || '').slice(0, 1800) +
+      '不要文字、不要水印、不要复刻具体官方角色，不要擅自添加未在本回合剧情或角色档案中出现的宝可梦。';
   }
 
   function getImageSource(turn) {
@@ -1257,14 +1338,15 @@
     var options = turn && Array.isArray(turn.options) ? turn.options : [];
     var turnTitle = turn && panels[0] && panels[0].title ? panels[0].title : state.turns ? '继续当前旅程' : '准备出发';
     var outcomes = turn && turn.outcomes && turn.outcomes.length ? '<section class="outcome-strip"><span class="eyebrow">本回合结果</span><div>' + turn.outcomes.map(function (item) { return '<span>' + escapeHtml(item) + '</span>'; }).join('') + '</div></section>' : '';
-    var choices = '<section class="choice-zone"><div class="choice-heading"><div><span class="eyebrow">你的行动</span><strong>下一步</strong></div><span class="muted">' + (state.loading ? '正在生成分镜…' : '选择或输入行动') + '</span></div>' +
+    var openingControl = !turn && !state.loading ? '<button class="primary-button wide-button opening-button" data-action="start-random-opening">' + icon('spark') + '随机生成开场剧情</button><p class="opening-note">将随机抽取出发线索、天气或地点事件，并生成第一页漫画分镜。</p>' : '';
+    var choices = '<section class="choice-zone"><div class="choice-heading"><div><span class="eyebrow">你的行动</span><strong>下一步</strong></div><span class="muted">' + (state.loading ? '正在生成分镜…' : '选择或输入行动') + '</span></div>' + openingControl +
       (state.activeEncounter && !state.loading ? '<div class="quick-actions"><button class="secondary-button compact-button" data-action="submit-action" data-value="观察这只宝可梦">观察</button><button class="primary-button compact-button" data-action="submit-action" data-value="发起战斗">战斗</button><button class="secondary-button compact-button" data-action="submit-action" data-value="投掷精灵球捕获">捕获</button><button class="secondary-button compact-button" data-action="submit-action" data-value="使用伤药">使用伤药</button><button class="text-button" data-action="submit-action" data-value="暂时逃跑">逃跑</button></div>' : '') +
       (options.length && !state.loading ? '<div class="choice-list">' + options.map(function (option, index) { return '<button class="choice-button choice-' + (index + 1) + '" data-action="submit-action" data-value="' + escapeHtml(option) + '"><span>' + String(index + 1).padStart(2, '0') + '</span><strong>' + escapeHtml(option) + '</strong>' + icon('arrow') + '</button>'; }).join('') + '</div>' : '') +
       '<form class="action-form" data-form="action"><input name="action" maxlength="240" placeholder="描述你的行动…" autocomplete="off" ' + (state.loading ? 'disabled' : '') + ' /><button class="send-button" type="submit" ' + (state.loading ? 'disabled' : '') + ' aria-label="发送行动">' + (state.loading ? '<span class="loading-ring"></span>' : icon('send')) + '</button></form></section>';
     return '<section class="adventure-page"><div class="page-intro adventure-intro"><div><span class="eyebrow">第 ' + String(state.turns).padStart(2, '0') + ' 回合 · ' + escapeHtml(regionData().name) + '</span><h2>' + escapeHtml(turnTitle) + '</h2></div><span class="location-chip">' + icon('location') + escapeHtml(state.location || '等待起点') + '</span></div>' +
       '<div class="adventure-layout"><div class="adventure-main">' + renderLiveStatus() + renderSceneImage(turn) +
       '<section class="storyboard-sheet"><div class="sheet-binding" aria-hidden="true"></div><div class="sheet-heading"><div><span class="eyebrow">漫画分镜</span><h3>' + (turn ? '第 ' + String(turn.turn).padStart(2, '0') + ' 回合' : '第一幕还没有开始') + '</h3></div><span class="sheet-count">' + (panels.length ? panels.length + ' 格' : '空白页') + '</span></div>' +
-      (panels.length ? '<div class="panel-grid">' + panels.map(renderPanel).join('') + '</div>' : '<div class="story-empty"><div class="empty-frame">' + icon('comic') + '</div><div><strong>这一页还没有画面</strong><p>选择一个行动后，故事会生成4–6格漫画分镜，插图会在后台绘制。</p></div></div>') + '</section></div>' +
+      (panels.length ? '<div class="panel-grid">' + panels.map(renderPanel).join('') + '</div>' : '<div class="story-empty"><div class="empty-frame">' + icon('comic') + '</div><div><strong>' + (state.loading ? '正在抽取开场剧情' : '这一页还没有画面') + '</strong><p>' + (state.loading ? '正在生成4–6格漫画分镜，完成后整页插图会转入后台绘制。' : '新角色会自动抽取开场；也可以点击右侧按钮重新随机一段开场剧情。') + '</p></div></div>') + '</section></div>' +
       '<aside class="adventure-sidebar">' + renderJourneyCard() + renderEncounter() + outcomes + choices + '</aside></div></section>';
   }
 
@@ -1486,6 +1568,7 @@
     var action = target.dataset.action;
     if (action === 'toggle-utility') { state.utilityOpen = !state.utilityOpen; render(); return; }
     if (action === 'new-adventure') { dialogTrigger = target; activeDialog = 'identity'; render(); return; }
+    if (action === 'start-random-opening') { submitAction(createRandomOpeningAction()); return; }
     if (action === 'close-dialog') { if (target.classList.contains('dialog-backdrop') && event.target.closest('[data-dialog-card]')) return; closeDialog(); return; }
     if (action === 'open-dialog') { dialogTrigger = target; var dialog = target.dataset.dialog || 'settings'; activeDialog = ['profile', 'dex', 'team', 'companions', 'bag'].indexOf(dialog) >= 0 ? 'info:' + dialog : dialog; state.utilityOpen = false; render(); return; }
     if (action === 'switch-screen') { state.screen = target.dataset.screen || 'adventure'; state.utilityOpen = false; persistState(); render(); return; }
