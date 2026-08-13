@@ -1,6 +1,6 @@
 /* ============================================================
  * PWA 引导 —— Service Worker 注册 + 安装提示条
- * 经典脚本，不依赖游戏主 bundle，失败静默不影响游戏
+ * AI 配置由玩家在网页设置中填写，不在静态资源中预置密钥。
  * ============================================================ */
 (function () {
   'use strict';
@@ -10,31 +10,11 @@
      避免 SW 以固定缓存名缓存旧外壳导致升级后内容不刷新 */
   if ('serviceWorker' in navigator && !window.Capacitor) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('./sw.js').catch(function () {
+    navigator.serviceWorker.register('./sw.js?v=20260812-layout-b').catch(function () {
         /* 注册失败（如 file:// 环境）不影响游戏 */
       });
     });
   }
-
-  /* ---------- AI 预置配置（APK 内置 pka-preset.json） ---------- */
-  /* 仅当本机尚未配置过 Key 且预置文件三项齐全时写入一次；
-     用户在游戏内修改设置后以本机配置为准 */
-  (function applyPreset() {
-    try {
-      if (localStorage.getItem('pka_ai_key')) return;
-    } catch (e) { return; }
-    fetch('./pka-preset.json').then(function (r) {
-      if (!r.ok) return null;
-      return r.json();
-    }).then(function (cfg) {
-      if (!cfg || !cfg.apiKey) return;
-      try {
-        localStorage.setItem('pka_ai_baseurl', cfg.baseURL || 'https://api.openai.com/v1');
-        localStorage.setItem('pka_ai_key', cfg.apiKey);
-        localStorage.setItem('pka_ai_model', cfg.model || 'gpt-4o-mini');
-      } catch (e) {}
-    }).catch(function () { /* 无预置文件时静默 */ });
-  })();
 
   /* ---------- 安装提示 ---------- */
   var deferredPrompt = null;

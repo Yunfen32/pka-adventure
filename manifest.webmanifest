@@ -1,15 +1,15 @@
 {
-  "name": "宝可梦 AI 文字冒险",
-  "short_name": "宝可梦冒险",
-  "description": "AI 驱动的宝可梦文字冒险：自由探索、捕捉宝可梦、书写属于你的故事",
+  "name": "宝可梦 AI 漫画冒险",
+  "short_name": "漫画冒险",
+  "description": "以漫画分镜推进的宝可梦风格 AI 文字冒险",
   "lang": "zh-CN",
   "dir": "ltr",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#EAF4FF",
-  "theme_color": "#EAF4FF",
+  "background_color": "#E8E0C0",
+  "theme_color": "#E8E0C0",
   "categories": ["games", "entertainment"],
   "icons": [
     {

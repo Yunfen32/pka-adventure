@@ -1,5 +1,6 @@
 {
   "baseURL": "https://open.bigmodel.cn/api/paas/v4",
-  "apiKey": "316830467d0546a4a7a0902b838f9780.kqbFeID2E9IYHzne",
-  "model": "glm-4.7-flash"
+  "model": "glm-4.7-flash",
+  "imageModel": "cogview-3-flash",
+  "images": true
 }

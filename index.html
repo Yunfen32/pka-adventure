@@ -2,49 +2,31 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <!-- 移动端视口：覆盖刘海屏、禁双击缩放 -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>宝可梦 AI 文字冒险</title>
-  <meta name="description" content="AI 驱动的宝可梦文字冒险：自由探索、捕捉宝可梦、书写属于你的故事" />
-
-  <!-- PWA -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>宝可梦 AI 漫画冒险</title>
+  <meta name="description" content="以漫画分镜推进的宝可梦风格 AI 文字冒险" />
   <link rel="manifest" href="./manifest.webmanifest" />
-  <meta name="theme-color" content="#EAF4FF" />
+  <meta name="theme-color" content="#E8E0C0" />
   <meta name="mobile-web-app-capable" content="yes" />
-
-  <!-- iOS  standalone -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="宝可梦冒险" />
+  <meta name="apple-mobile-web-app-title" content="漫画冒险" />
   <link rel="apple-touch-icon" href="./icons/icon-180.png" />
-
   <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png" />
-  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
-
-  <link rel="stylesheet" href="./assets/app.css?v=20260809a" />
-  <link rel="stylesheet" href="./assets/mobile.css?v=20260809a" />
+  <link rel="stylesheet" href="./assets/app.css?v=20260812-layout-b" />
+  <link rel="stylesheet" href="./assets/mobile.css?v=20260812-layout-b" />
 </head>
 <body>
   <div id="root">
-    <!-- JS 加载期间的启动闪屏，React 渲染后自动替换 -->
-    <div class="boot-splash">
-      <div class="pokeball"></div>
-      <p>宝可梦 AI 文字冒险</p>
+    <div class="boot-splash" aria-label="正在载入">
+      <div class="pokeball" aria-hidden="true"></div>
+      <p>正在打开冒险漫画</p>
     </div>
   </div>
-  <!-- 内置 AI 配置：同步写入，确保主 bundle 挂载前 localStorage 已就绪，
-       避免首屏误显"需要配置 API"。仅当本机未配置过时写入，玩家在设置里改后以本机为准。 -->
-  <script>
-    (function () {
-      try {
-        if (localStorage.getItem('pka_ai_key')) return;
-        localStorage.setItem('pka_ai_baseurl', 'https://open.bigmodel.cn/api/paas/v4');
-        localStorage.setItem('pka_ai_key', '316830467d0546a4a7a0902b838f9780.kqbFeID2E9IYHzne');
-        localStorage.setItem('pka_ai_model', 'glm-4.7-flash');
-      } catch (e) {}
-    })();
-  </script>
-  <script src="./assets/app.js?v=20260809a"></script>
-  <script src="./pwa.js"></script>
+  <script src="./assets/world-data.js?v=20260812-layout-b"></script>
+  <script src="./assets/game-rules.js?v=20260812-layout-b"></script>
+  <script src="./assets/media-store.js?v=20260812-layout-b"></script>
+  <script src="./assets/app.js?v=20260812-layout-b"></script>
+  <script src="./pwa.js?v=20260812-layout-b"></script>
 </body>
 </html>
