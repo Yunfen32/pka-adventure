@@ -6,9 +6,13 @@
 
 当前项目范围为**网页版**，使用静态文件即可运行，不依赖后端服务，也不包含 Android 原生应用构建内容。
 
+## 项目截图
+
+![宝可梦漫画冒险首页](./docs/screenshot.png)
+
 ## 当前特色
 
-- 内置 Agnes AI API 配置，打开网页后即可开始，不需要先填写 API Key。
+- 内置智谱剧情与 Agnes 插图双 API 配置，打开网页后即可开始，不需要先填写 API Key。
 - 每个冒险回合生成 **4–6 格漫画分镜**，每格包含镜头、构图、动作、叙事、对白和音效信息。
 - 每个回合生成一张位于剧情上方的整页动漫风格插图。
 - AI 负责生成叙事、选项和事件建议；游戏规则负责处理战斗、捕获、道具和奖励结果。
@@ -67,7 +71,7 @@ npx serve .
 5. 通过底部导航切换冒险、漫画和故事模块。
 6. 点击“更多”访问个人信息、图鉴、宝可梦、伙伴和背包。
 
-网页内置了 Agnes AI API，可以直接开始。如果需要使用其它 OpenAI 兼容接口，可以在 AI 设置中覆盖接口地址、模型和图像模型配置。
+网页默认使用双 AI 通道，可以直接开始：智谱 AI 负责文字剧情和漫画分镜，Agnes AI 负责整页动漫插图。如果需要更换服务，可以在 AI 设置中分别覆盖两个通道的接口地址、模型和 API Key。
 
 ## 游戏模块
 
@@ -176,8 +180,9 @@ pokemon-ai-adventure/
 
 - 原生 JavaScript、HTML 和 CSS，无构建步骤。
 - AI 接口采用 OpenAI 兼容的 Chat Completions 请求格式。
-- 默认使用内置 Agnes AI 文本模型 `agnes-2.5-flash` 和图像模型 `agnes-image-2.1-flash` 配置。
-- Agnes AI 使用 `https://apihub.agnes-ai.com/v1` 作为 OpenAI 兼容 Base URL；图像请求使用 `2:3` 竖版比例，适配漫画冒险页面。
+- 默认使用智谱 AI 文字模型 `glm-4.7-flash` 生成中文剧情和结构化分镜。
+- 默认使用 Agnes AI 图像模型 `agnes-image-2.1-flash` 生成整页插图，Base URL 为 `https://apihub.agnes-ai.com/v1`；图像请求使用 `2:3` 竖版比例，适配漫画冒险页面。
+- 两个通道都采用 OpenAI 兼容请求格式；剧情 API 与插图 API 的配置、密钥和失败状态相互独立。
 - 宝可梦资料和立绘来自 [PokéAPI](https://pokeapi.co)，并通过浏览器缓存减少重复请求。
 - 正史名称和世界观边界由 `assets/world-data.js` 统一注入；PokéAPI 仅作为未命中本地资料时的补充来源。
 - 游戏状态使用浏览器本地存储管理，图片使用 IndexedDB 独立缓存。

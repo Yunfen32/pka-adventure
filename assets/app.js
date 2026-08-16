@@ -9,13 +9,17 @@
 
   const root = document.getElementById('root');
   const APP_VERSION = '3.0.0-rpg';
-  const SETTINGS_KEY = 'pka_ai_config_v3';
+  const SETTINGS_KEY = 'pka_ai_config_v4';
+  const LEGACY_SETTINGS_KEY = 'pka_ai_config_v3';
   const AUTOSAVE_KEY = 'pka_autosave_v2';
   const SAVE_PREFIX = 'pka_save_v2_';
+  const DEFAULT_IMAGE_COLLAPSED = true;
   const BUILTIN_CONFIG = {
-    baseURL: 'https://apihub.agnes-ai.com/v1',
-    apiKey: 'sk-r0GcH1YJo8s8zdyE1CWEAO4GDEGf5tr3teRgiLUNzlnt8mpB',
-    model: 'agnes-2.5-flash',
+    textBaseURL: 'https://open.bigmodel.cn/api/paas/v4',
+    textApiKey: '316830467d0546a4a7a0902b838f9780.kqbFeID2E9IYHzne',
+    textModel: 'glm-4.7-flash',
+    imageBaseURL: 'https://apihub.agnes-ai.com/v1',
+    imageApiKey: 'sk-r0GcH1YJo8s8zdyE1CWEAO4GDEGf5tr3teRgiLUNzlnt8mpB',
     imageModel: 'agnes-image-2.1-flash',
     images: true
   };
@@ -84,14 +88,19 @@
   }
 
   function getSettings() {
-    const saved = readJson(SETTINGS_KEY, {});
-    const isLegacyBigModel = String(saved.baseURL || '').indexOf('open.bigmodel.cn') >= 0;
-    const hasSavedApiKey = Object.prototype.hasOwnProperty.call(saved, 'apiKey') && !isLegacyBigModel;
+    const saved = readJson(SETTINGS_KEY, null) || readJson(LEGACY_SETTINGS_KEY, {});
+    const legacyBaseURL = normalizeBaseUrl(saved.baseURL || '');
+    const legacyApiKey = String(saved.apiKey || '');
+    const legacyIsBigModel = legacyBaseURL.indexOf('open.bigmodel.cn') >= 0;
+    const hasSaved = function (key) { return Object.prototype.hasOwnProperty.call(saved, key); };
+    const savedValue = function (key, fallback) { return hasSaved(key) ? String(saved[key] || '') : fallback; };
     return {
-      baseURL: normalizeBaseUrl(isLegacyBigModel ? BUILTIN_CONFIG.baseURL : (saved.baseURL || BUILTIN_CONFIG.baseURL)),
-      apiKey: hasSavedApiKey ? String(saved.apiKey || '') : BUILTIN_CONFIG.apiKey,
-      model: String(isLegacyBigModel ? BUILTIN_CONFIG.model : (saved.model || BUILTIN_CONFIG.model)),
-      imageModel: String(isLegacyBigModel ? BUILTIN_CONFIG.imageModel : (saved.imageModel || BUILTIN_CONFIG.imageModel)),
+      textBaseURL: normalizeBaseUrl(savedValue('textBaseURL', legacyIsBigModel ? legacyBaseURL : BUILTIN_CONFIG.textBaseURL)),
+      textApiKey: savedValue('textApiKey', legacyIsBigModel ? legacyApiKey : BUILTIN_CONFIG.textApiKey),
+      textModel: savedValue('textModel', legacyIsBigModel ? (saved.model || BUILTIN_CONFIG.textModel) : BUILTIN_CONFIG.textModel),
+      imageBaseURL: normalizeBaseUrl(savedValue('imageBaseURL', legacyIsBigModel ? BUILTIN_CONFIG.imageBaseURL : (legacyBaseURL || BUILTIN_CONFIG.imageBaseURL))),
+      imageApiKey: savedValue('imageApiKey', legacyIsBigModel ? BUILTIN_CONFIG.imageApiKey : (legacyApiKey || BUILTIN_CONFIG.imageApiKey)),
+      imageModel: savedValue('imageModel', legacyIsBigModel ? BUILTIN_CONFIG.imageModel : (saved.imageModel || BUILTIN_CONFIG.imageModel)),
       images: saved.images !== false,
       theme: saved.theme === 'night' ? 'night' : 'light'
     };
@@ -99,9 +108,11 @@
 
   function saveSettings(settings) {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({
-      baseURL: normalizeBaseUrl(settings.baseURL),
-      apiKey: String(settings.apiKey || ''),
-      model: String(settings.model || BUILTIN_CONFIG.model),
+      textBaseURL: normalizeBaseUrl(settings.textBaseURL),
+      textApiKey: String(settings.textApiKey || ''),
+      textModel: String(settings.textModel || BUILTIN_CONFIG.textModel),
+      imageBaseURL: normalizeBaseUrl(settings.imageBaseURL),
+      imageApiKey: String(settings.imageApiKey || ''),
       imageModel: String(settings.imageModel || BUILTIN_CONFIG.imageModel),
       images: settings.images !== false,
       theme: settings.theme === 'night' ? 'night' : 'light'
@@ -221,6 +232,10 @@
 
   function currentTurn() {
     return state.currentTurn || state.storyboards[state.storyboards.length - 1] || null;
+  }
+
+  function imageIsCollapsed(turn) {
+    return !turn || turn.imageCollapsed !== false;
   }
 
   function setState(patch, shouldPersist) {
@@ -404,10 +419,24 @@
     return dialogFrame('创建角色', content);
   }
 
+  function renderProviderSettingsCard(number, eyebrow, title, badge, description, baseName, baseURL, modelName, model, apiKeyName, apiKey, className) {
+    return '<section class="provider-card ' + className + '"><div class="provider-card-head"><div><span class="eyebrow">' + number + ' · ' + eyebrow + '</span><strong>' + title + '</strong></div><span class="provider-badge">' + badge + '</span></div>' +
+      '<p class="provider-description">' + description + '</p>' +
+      '<label class="provider-field"><span>API Base URL</span><input name="' + baseName + '" value="' + escapeHtml(baseURL) + '" autocomplete="url" /></label>' +
+      '<label class="provider-field"><span>模型</span><input name="' + modelName + '" value="' + escapeHtml(model) + '" autocomplete="off" /></label>' +
+      '<label class="provider-field"><span>API Key</span><input name="' + apiKeyName + '" type="password" placeholder="' + (apiKey ? '已内置或已保存，留空保持不变' : '填写此通道的 API Key') + '" autocomplete="off" /></label></section>';
+  }
+
+  function renderSettingsContent(config) {
+    return '<form class="dialog-form provider-settings-form" data-form="settings"><p class="dialog-note">已拆分两个 AI 通道：智谱负责中文剧情与漫画分镜，Agnes 负责整页动漫插图。两边可以独立更换模型和密钥。</p><div class="provider-grid">' +
+      renderProviderSettingsCard('01', '剧情通道', '智谱 AI', '中文叙事', '生成连续的小说化剧情、4–6 格漫画分镜、行动选项和游戏事件。', 'textBaseURL', config.textBaseURL, 'textModel', config.textModel, 'textApiKey', config.textApiKey, 'provider-card-text') +
+      renderProviderSettingsCard('02', '插图通道', 'Agnes AI', '整页插图', '根据已确认的分镜和角色资料，在后台生成竖版整页漫画插图。', 'imageBaseURL', config.imageBaseURL, 'imageModel', config.imageModel, 'imageApiKey', config.imageApiKey, 'provider-card-image') +
+      '</div><label class="switch-row"><span>启用每回合整页插图</span><input name="images" type="checkbox" ' + (config.images ? 'checked' : '') + ' /><span class="switch-ui"></span></label><label class="switch-row"><span>夜间阅读模式</span><input name="theme" value="night" type="checkbox" ' + (config.theme === 'night' ? 'checked' : '') + ' /><span class="switch-ui"></span></label><div class="provider-footnote">文字通道不可用时无法推进剧情；插图通道不可用时仍会保留文字剧情，并允许之后单独重试。</div><div class="dialog-actions"><button class="text-button danger-text" type="button" data-action="clear-api-key">清除已保存的两个 API Key</button><button class="primary-button" type="submit">保存双通道设置 ' + icon('check') + '</button></div></form>';
+  }
+
   function renderSettingsDialog() {
     const config = getSettings();
-    const content = '<form class="dialog-form" data-form="settings"><p class="dialog-note">当前已切换到 Agnes AI OpenAI 兼容接口，也可以在这里替换为其它兼容服务。</p><label>API Base URL<input name="baseURL" value="' + escapeHtml(config.baseURL) + '" placeholder="https://apihub.agnes-ai.com/v1" /></label><label>API Key<input name="apiKey" type="password" placeholder="' + (config.apiKey ? '已内置或已保存，留空保持不变' : '填写你的 API Key') + '" autocomplete="off" /></label><label>文字模型<input name="model" value="' + escapeHtml(config.model) + '" placeholder="agnes-2.5-flash" /></label><label>插图模型<input name="imageModel" value="' + escapeHtml(config.imageModel) + '" placeholder="agnes-image-2.1-flash" /></label><label class="switch-row"><span>每回合生成动漫插图</span><input name="images" type="checkbox" ' + (config.images ? 'checked' : '') + ' /><span class="switch-ui"></span></label><div class="dialog-actions"><button class="text-button danger-text" type="button" data-action="clear-api-key">清除 API Key</button><button class="primary-button" type="submit">保存设置 ' + icon('check') + '</button></div></form>';
-    return dialogFrame('AI 设置', content);
+    return dialogFrame('AI 设置', renderSettingsContent(config));
   }
 
   function renderSaveDialog() {
@@ -423,8 +452,7 @@
 
   function renderSettingsDialog() {
     var config = getSettings();
-    var content = '<form class="dialog-form" data-form="settings"><p class="dialog-note">当前已切换到 Agnes AI OpenAI 兼容接口，也可以在这里替换为其它兼容服务。</p><label>API Base URL<input name="baseURL" value="' + escapeHtml(config.baseURL) + '" placeholder="https://apihub.agnes-ai.com/v1" /></label><label>API Key<input name="apiKey" type="password" placeholder="' + (config.apiKey ? '已内置或已保存，留空保持不变' : '填写你的 API Key') + '" autocomplete="off" /></label><label>文字模型<input name="model" value="' + escapeHtml(config.model) + '" placeholder="agnes-2.5-flash" /></label><label>插图模型<input name="imageModel" value="' + escapeHtml(config.imageModel) + '" placeholder="agnes-image-2.1-flash" /></label><label class="switch-row"><span>每回合生成动漫插图</span><input name="images" type="checkbox" ' + (config.images ? 'checked' : '') + ' /><span class="switch-ui"></span></label><label class="switch-row"><span>夜间阅读模式</span><input name="theme" value="night" type="checkbox" ' + (config.theme === 'night' ? 'checked' : '') + ' /><span class="switch-ui"></span></label><div class="dialog-actions"><button class="text-button danger-text" type="button" data-action="clear-api-key">清除 API Key</button><button class="primary-button" type="submit">保存设置 ' + icon('check') + '</button></div></form>';
-    return dialogFrame('AI 设置', content);
+    return dialogFrame('AI 设置', renderSettingsContent(config));
   }
 
   function renderInfoDialog(type) {
@@ -847,7 +875,7 @@
   function normalizeState(value) {
     var next = PkaRules.normalizeState(value);
     next.storyboards = next.storyboards.map(function (turn) {
-      return Object.assign({}, turn, { image: '', imageStatus: turn.imageStatus || (turn.imageRef ? 'ready' : 'unavailable'), imageCollapsed: turn.imageCollapsed !== false });
+      return Object.assign({}, turn, { image: '', imageStatus: turn.imageStatus || (turn.imageRef ? 'ready' : 'unavailable'), imageCollapsed: Object.prototype.hasOwnProperty.call(turn, 'imageCollapsed') ? turn.imageCollapsed !== false : DEFAULT_IMAGE_COLLAPSED });
     });
     if (next.currentTurn) {
       next.currentTurn = next.storyboards.find(function (turn) { return turn.turn === next.currentTurn.turn; }) || next.storyboards[next.storyboards.length - 1] || null;
@@ -1127,6 +1155,10 @@
       '最近分镜（必须从最后一回合的结尾接续）：\n' + recent.slice(0, 5200);
   }
 
+  function isRandomOpeningAction(action) {
+    return String(action || '').indexOf('【随机开场】') === 0;
+  }
+
   function normalizeEvents(events) {
     var source = events && typeof events === 'object' ? events : {};
     var encounter = source.encounter && typeof source.encounter === 'object' ? source.encounter : null;
@@ -1242,16 +1274,16 @@
   }
 
   async function callChat(config, action) {
-    var endpoint = normalizeBaseUrl(config.baseURL) + '/chat/completions';
+    var endpoint = normalizeBaseUrl(config.textBaseURL) + '/chat/completions';
     var controller = new AbortController();
     var timer = setTimeout(function () { controller.abort(); }, 60000);
-    var body = { model: config.model, messages: buildMessages(action), temperature: 0.82, max_tokens: 5200, response_format: { type: 'json_object' } };
+    var body = { model: config.textModel, messages: buildMessages(action), temperature: 0.82, max_tokens: 5200, response_format: { type: 'json_object' } };
     var response;
     try {
-      response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + config.apiKey }, body: JSON.stringify(body), signal: controller.signal });
+      response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + config.textApiKey }, body: JSON.stringify(body), signal: controller.signal });
       if (!response.ok && (response.status === 400 || response.status === 422)) {
         body.response_format = undefined;
-        response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + config.apiKey }, body: JSON.stringify(body), signal: controller.signal });
+        response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + config.textApiKey }, body: JSON.stringify(body), signal: controller.signal });
       }
     } catch (error) {
       if (error.name === 'AbortError') throw new Error('剧情生成超时，请保留当前行动后重试。');
@@ -1273,11 +1305,12 @@
 
   async function generateImage(config, prompt) {
     if (!config.images || !prompt) return '';
-    var endpoint = normalizeBaseUrl(config.baseURL) + '/images/generations';
+    if (!config.imageApiKey) throw new Error('插图 API Key 未配置，请在 AI 设置中填写 Agnes 插图通道。');
+    var endpoint = normalizeBaseUrl(config.imageBaseURL) + '/images/generations';
     var controller = new AbortController();
     var timer = setTimeout(function () { controller.abort(); }, 90000);
     try {
-      var response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + config.apiKey }, body: JSON.stringify({ model: config.imageModel || 'agnes-image-2.1-flash', prompt: buildIllustrationPrompt(prompt), size: '2:3' }), signal: controller.signal });
+      var response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + config.imageApiKey }, body: JSON.stringify({ model: config.imageModel || 'agnes-image-2.1-flash', prompt: buildIllustrationPrompt(prompt), size: '2:3' }), signal: controller.signal });
       if (!response.ok) throw new Error('插图模型暂不支持或请求失败');
       var data = await response.json();
       var image = data && data.data && data.data[0];
@@ -1309,10 +1342,11 @@
   }
 
   function renderLiveStatus() {
-    if (state.loading) return '<div class="live-status" aria-live="polite">正在生成剧情分镜，完成后会继续绘制整页插图。</div>';
+    if (state.loading) return '<div class="live-status" aria-live="polite">正在请求智谱生成文字剧情与漫画分镜，完成后会交给 Agnes 后台绘制插图。</div>';
     if (state.error) return '<div class="live-status live-status-error" aria-live="assertive">' + escapeHtml(state.error) + '</div>';
     var turn = currentTurn();
-    if (turn && turn.imageStatus === 'generating') return '<div class="live-status" aria-live="polite">文字剧情已经生成，整页插图正在后台绘制；你可以先阅读分镜或选择下一步。</div>';
+    if (turn && turn.imageStatus === 'skipped') return '<div class="live-status" aria-live="polite">开场剧情已生成，本回合暂不绘制插图；选择下一步后将恢复后台生成。</div>';
+    if (turn && turn.imageStatus === 'generating') return '<div class="live-status" aria-live="polite">智谱剧情已经生成，Agnes 正在后台绘制整页插图；你可以先阅读分镜或选择下一步。</div>';
     return '<div class="live-status" aria-live="polite">' + (state.activeEncounter ? '当前有遭遇未结束，可以选择战斗、捕获或离开。' : '选择一个动作，继续把下一页漫画画出来。') + '</div>';
   }
 
@@ -1338,7 +1372,7 @@
     var options = turn && Array.isArray(turn.options) ? turn.options : [];
     var turnTitle = turn && panels[0] && panels[0].title ? panels[0].title : state.turns ? '继续当前旅程' : '准备出发';
     var outcomes = turn && turn.outcomes && turn.outcomes.length ? '<section class="outcome-strip"><span class="eyebrow">本回合结果</span><div>' + turn.outcomes.map(function (item) { return '<span>' + escapeHtml(item) + '</span>'; }).join('') + '</div></section>' : '';
-    var openingControl = !turn && !state.loading ? '<button class="primary-button wide-button opening-button" data-action="start-random-opening">' + icon('spark') + '随机生成开场剧情</button><p class="opening-note">将随机抽取出发线索、天气或地点事件，并生成第一页漫画分镜。</p>' : '';
+    var openingControl = !turn && !state.loading ? '<button class="primary-button wide-button opening-button" data-action="start-random-opening">' + icon('spark') + '随机生成开场剧情</button><p class="opening-note">先生成文字分镜，不绘制插图；选择下一步后恢复后台绘图。</p>' : '';
     var choices = '<section class="choice-zone"><div class="choice-heading"><div><span class="eyebrow">你的行动</span><strong>下一步</strong></div><span class="muted">' + (state.loading ? '正在生成分镜…' : '选择或输入行动') + '</span></div>' + openingControl +
       (state.activeEncounter && !state.loading ? '<div class="quick-actions"><button class="secondary-button compact-button" data-action="submit-action" data-value="观察这只宝可梦">观察</button><button class="primary-button compact-button" data-action="submit-action" data-value="发起战斗">战斗</button><button class="secondary-button compact-button" data-action="submit-action" data-value="投掷精灵球捕获">捕获</button><button class="secondary-button compact-button" data-action="submit-action" data-value="使用伤药">使用伤药</button><button class="text-button" data-action="submit-action" data-value="暂时逃跑">逃跑</button></div>' : '') +
       (options.length && !state.loading ? '<div class="choice-list">' + options.map(function (option, index) { return '<button class="choice-button choice-' + (index + 1) + '" data-action="submit-action" data-value="' + escapeHtml(option) + '"><span>' + String(index + 1).padStart(2, '0') + '</span><strong>' + escapeHtml(option) + '</strong>' + icon('arrow') + '</button>'; }).join('') + '</div>' : '') +
@@ -1346,27 +1380,30 @@
     return '<section class="adventure-page"><div class="page-intro adventure-intro"><div><span class="eyebrow">第 ' + String(state.turns).padStart(2, '0') + ' 回合 · ' + escapeHtml(regionData().name) + '</span><h2>' + escapeHtml(turnTitle) + '</h2></div><span class="location-chip">' + icon('location') + escapeHtml(state.location || '等待起点') + '</span></div>' +
       '<div class="adventure-layout"><div class="adventure-main">' + renderLiveStatus() + renderSceneImage(turn) +
       '<section class="storyboard-sheet"><div class="sheet-binding" aria-hidden="true"></div><div class="sheet-heading"><div><span class="eyebrow">漫画分镜</span><h3>' + (turn ? '第 ' + String(turn.turn).padStart(2, '0') + ' 回合' : '第一幕还没有开始') + '</h3></div><span class="sheet-count">' + (panels.length ? panels.length + ' 格' : '空白页') + '</span></div>' +
-      (panels.length ? '<div class="panel-grid">' + panels.map(renderPanel).join('') + '</div>' : '<div class="story-empty"><div class="empty-frame">' + icon('comic') + '</div><div><strong>' + (state.loading ? '正在抽取开场剧情' : '这一页还没有画面') + '</strong><p>' + (state.loading ? '正在生成4–6格漫画分镜，完成后整页插图会转入后台绘制。' : '新角色会自动抽取开场；也可以点击右侧按钮重新随机一段开场剧情。') + '</p></div></div>') + '</section></div>' +
+      (panels.length ? '<div class="panel-grid">' + panels.map(renderPanel).join('') + '</div>' : '<div class="story-empty"><div class="empty-frame">' + icon('comic') + '</div><div><strong>' + (state.loading ? '正在抽取开场剧情' : '这一页还没有画面') + '</strong><p>' + (state.loading ? '正在生成4–6格文字分镜，开场不会调用插图接口。' : '新角色会自动抽取开场；也可以点击右侧按钮重新随机一段开场剧情。') + '</p></div></div>') + '</section></div>' +
       '<aside class="adventure-sidebar">' + renderJourneyCard() + renderEncounter() + outcomes + choices + '</aside></div></section>';
   }
 
   function renderSceneImage(turn) {
-    if (!turn) return '<section class="scene-card scene-card-empty"><div class="scene-topline"><span>镜头组 01</span><span>插图</span></div><div class="scene-placeholder"><div class="placeholder-orbit">' + icon('image') + '</div><strong>根据分镜生成的整页插图</strong><span>完成第一回合后，画面会出现在这里。</span></div></section>';
+    if (!turn) return '<section class="scene-card scene-card-empty"><div class="scene-topline"><span>镜头组 01</span><span>插图</span></div><div class="scene-placeholder"><div class="placeholder-orbit">' + icon('image') + '</div><strong>根据分镜生成的整页插图</strong><span>随机开场先生成文字分镜，选择下一步后再开始绘制。</span></div></section>';
     var image = getImageSource(turn);
-    var collapsed = turn.imageCollapsed !== false;
-    var imageState = turn.imageStatus === 'generating' ? '后台绘制中' : turn.imageStatus === 'unavailable' ? '插图暂不可用' : image ? (collapsed ? '已生成 · 已折叠' : '本回合整页漫画') : '等待绘制';
+    var collapsed = imageIsCollapsed(turn);
+    var imageState = turn.imageStatus === 'skipped' ? '开场暂不绘图' : turn.imageStatus === 'generating' ? '后台绘制中' : turn.imageStatus === 'unavailable' ? '插图暂不可用' : image ? (collapsed ? '已生成 · 已折叠' : '本回合整页漫画') : '等待绘制';
     var turnNumber = String(turn.turn || state.turns);
-    var toggle = image ? '<button class="scene-toggle compact-button" data-action="toggle-image" data-turn="' + turnNumber + '" aria-expanded="' + String(!collapsed) + '">' + icon(collapsed ? 'image' : 'close') + (collapsed ? '显示插图' : '折叠插图') + '</button>' : '';
+    var toggle = '<button class="scene-toggle compact-button" data-action="toggle-image" data-turn="' + turnNumber + '" aria-expanded="' + String(!collapsed) + '">' + icon(collapsed ? 'image' : 'close') + (collapsed ? (image ? '显示插图' : '展开插图区') : '折叠插图区') + '</button>';
     var retry = turn.imagePrompt && turn.imageStatus === 'unavailable' ? '<button class="secondary-button compact-button" data-action="generate-image" data-turn="' + turnNumber + '">' + icon('refresh') + '重新生成</button>' : '';
     var content = '';
-    if (image && !collapsed) {
+    if (collapsed) {
+      var collapsedTitle = image ? '插图已在后台生成' : turn.imageStatus === 'skipped' ? '开场暂不绘图' : turn.imageStatus === 'generating' ? '插图正在后台生成' : turn.imageStatus === 'unavailable' ? '插图生成失败' : '插图等待生成';
+      var collapsedCopy = image ? '剧情已先展示，点击按钮后查看整页漫画。' : turn.imageStatus === 'skipped' ? '本回合先阅读文字分镜，下一步行动后恢复插图。' : turn.imageStatus === 'unavailable' ? '剧情不受影响，可展开查看详情并重新生成。' : '剧情已先展示，插图状态可以稍后查看。';
+      content = '<div class="scene-collapsed scene-collapsed-status" aria-live="polite"><div class="scene-collapsed-copy"><div class="placeholder-orbit is-static">' + icon(image ? 'image' : turn.imageStatus === 'skipped' ? 'comic' : 'spark') + '</div><div><strong>' + collapsedTitle + '</strong><span>' + collapsedCopy + '</span></div></div>' + toggle + '</div>';
+    } else if (image) {
       content = '<div class="scene-image"><img src="' + escapeHtml(image) + '" alt="第 ' + turnNumber + ' 回合的整页动漫冒险插图" loading="lazy" /></div>';
-    } else if (image && collapsed) {
-      content = '<div class="scene-collapsed" aria-live="polite"><div class="scene-collapsed-copy"><div class="placeholder-orbit is-static">' + icon('image') + '</div><div><strong>插图已在后台生成</strong><span>剧情已先展示，点击右上角或下方按钮查看整页漫画。</span></div></div>' + toggle + '</div>';
     } else {
-      content = '<div class="scene-placeholder"><div class="placeholder-orbit ' + (turn.imageStatus === 'generating' ? 'is-generating' : '') + '">' + icon(turn.imageStatus === 'generating' ? 'spark' : 'image') + '</div><strong>' + (turn.imageStatus === 'generating' ? '画师正在后台绘制这一页' : turn.imageStatus === 'unavailable' ? '插图生成失败' : '插图正在排队') + '</strong><span>' + (turn.imageError ? escapeHtml(turn.imageError) : '剧情和分镜已经保存，不会影响下一步。') + '</span>' + retry + '</div>';
+      var skipped = turn.imageStatus === 'skipped';
+      content = '<div class="scene-placeholder' + (skipped ? ' scene-placeholder-skipped' : '') + '"><div class="placeholder-orbit ' + (turn.imageStatus === 'generating' ? 'is-generating' : '') + '">' + icon(skipped ? 'comic' : turn.imageStatus === 'generating' ? 'spark' : 'image') + '</div><strong>' + (skipped ? '开场先阅读剧情' : turn.imageStatus === 'generating' ? '画师正在后台绘制这一页' : turn.imageStatus === 'unavailable' ? '插图生成失败' : '插图正在排队') + '</strong><span>' + (skipped ? '这是随机开场回合，为了先让故事展开，本回合不生成插图。下一次行动会恢复插图。' : turn.imageError ? escapeHtml(turn.imageError) : '剧情和分镜已经保存，不会影响下一步。') + '</span>' + (skipped ? '' : retry) + '</div>';
     }
-    return '<section class="scene-card ' + (image ? 'has-image ' : '') + (collapsed ? 'is-collapsed' : '') + '"><div class="scene-topline"><span>镜头组 ' + turnNumber.padStart(2, '0') + '</span><div class="scene-top-actions"><span>' + escapeHtml(imageState) + '</span>' + (image && !collapsed ? toggle : retry) + '</div></div>' + content + '</section>';
+    return '<section class="scene-card ' + (image ? 'has-image ' : '') + (collapsed ? 'is-collapsed ' : '') + (turn.imageStatus === 'skipped' ? 'is-opening ' : '') + '"><div class="scene-topline"><span>镜头组 ' + turnNumber.padStart(2, '0') + '</span><div class="scene-top-actions"><span>' + escapeHtml(imageState) + '</span>' + (!collapsed ? toggle : '') + '</div></div>' + content + '</section>';
   }
 
   function renderPanel(panel, index) {
@@ -1383,7 +1420,7 @@
   function renderComicBoard(board) {
     var image = getImageSource(board);
     return '<article class="gallery-board"><div class="gallery-board-head"><span>第 ' + String(board.turn || 0).padStart(2, '0') + ' 回合</span><span>' + escapeHtml(board.location || '') + '</span></div>' +
-      (image ? '<img src="' + escapeHtml(image) + '" alt="第 ' + String(board.turn || 0) + ' 回合漫画插图" loading="lazy" />' : '<div class="gallery-no-image">' + icon('image') + '<span>' + (board.imageStatus === 'generating' ? '正在绘制本页' : '本页插图暂不可用') + '</span>' + (board.imagePrompt && board.imageStatus !== 'generating' ? '<button class="secondary-button compact-button" data-action="generate-image" data-turn="' + String(board.turn) + '">' + icon('refresh') + '重新生成</button>' : '') + '</div>') +
+      (image ? '<img src="' + escapeHtml(image) + '" alt="第 ' + String(board.turn || 0) + ' 回合漫画插图" loading="lazy" />' : '<div class="gallery-no-image">' + icon(board.imageStatus === 'skipped' ? 'comic' : 'image') + '<span>' + (board.imageStatus === 'skipped' ? '开场回合暂不绘制插图' : board.imageStatus === 'generating' ? '正在绘制本页' : '本页插图暂不可用') + '</span>' + (board.imagePrompt && board.imageStatus !== 'generating' && board.imageStatus !== 'skipped' ? '<button class="secondary-button compact-button" data-action="generate-image" data-turn="' + String(board.turn) + '">' + icon('refresh') + '重新生成</button>' : '') + '</div>') +
       '<div class="gallery-copy"><div class="mini-panel-row">' + (board.panels || []).slice(0, 6).map(function (panel, index) { return '<span><b>' + String(index + 1).padStart(2, '0') + '</b>' + escapeHtml(panel.shot || '分镜') + '</span>'; }).join('') + '</div><p>' + escapeHtml((board.panels || []).map(function (panel) { return panel.text || ''; }).join(' ').slice(0, 420)) + '</p></div></article>';
   }
 
@@ -1445,7 +1482,7 @@
     var cleanAction = String(action || '').trim();
     if (!cleanAction || state.loading) return;
     var config = getSettings();
-    if (!config.apiKey) { state.error = '请先在 AI 设置中填写 API Key。'; activeDialog = 'settings'; render(); return; }
+    if (!config.textApiKey) { state.error = '请先在 AI 设置中填写智谱剧情通道的 API Key。'; activeDialog = 'settings'; render(); return; }
     state.loading = true;
     state.error = '';
     addMessage('user', cleanAction);
@@ -1455,14 +1492,16 @@
       var applied = await applyRuleEvents(cleanAction, result.events);
       result = applied.suppressedEncounter ? sanitizeSuppressedEncounter(result, applied.proposedEncounterName) : canonicalizeNarrative(result, applied.encounterRecord, applied.proposedEncounterName);
       state.turns += 1;
-      var turn = { turn: state.turns, location: state.location, playerAction: cleanAction, panels: result.panels, options: result.options, imagePrompt: result.imagePrompt, imageRef: '', image: '', imageStatus: result.imagePrompt && config.images ? 'waiting' : 'unavailable', imageCollapsed: true, imageError: '', outcomes: applied.outcomes, events: applied.resolution.events, timestamp: Date.now() };
+      var opening = isRandomOpeningAction(cleanAction);
+      var imageReady = config.images && !!config.imageApiKey;
+      var turn = { turn: state.turns, location: state.location, playerAction: cleanAction, panels: result.panels, options: result.options, imagePrompt: opening ? '' : result.imagePrompt, imageRef: '', image: '', imageStatus: opening ? 'skipped' : (result.imagePrompt && imageReady ? 'waiting' : 'unavailable'), imageCollapsed: DEFAULT_IMAGE_COLLAPSED, imageError: !opening && result.imagePrompt && !imageReady ? '插图通道未配置，文字剧情已保存。' : '', outcomes: applied.outcomes, events: applied.resolution.events, timestamp: Date.now() };
       state.currentTurn = turn;
       state.storyboards = state.storyboards.concat([turn]);
       addMessage('assistant', JSON.stringify({ panels: result.panels, options: result.options, events: applied.resolution.events }));
       state.loading = false;
       persistState();
       render();
-      if (result.imagePrompt && config.images) {
+      if (!opening && result.imagePrompt && imageReady) {
         pendingImage = true;
         turn.imageStatus = 'generating';
         syncCurrentTurn(turn);
@@ -1493,7 +1532,8 @@
   async function regenerateCurrentImage(turnNumber) {
     var turn = turnNumber ? state.storyboards.find(function (item) { return Number(item.turn) === Number(turnNumber); }) : currentTurn();
     var config = getSettings();
-    if (!turn || !turn.imagePrompt || !config.apiKey || pendingImage) return;
+    if (!turn || !turn.imagePrompt || pendingImage) return;
+    if (!config.imageApiKey) { state.error = '请先在 AI 设置中填写 Agnes 插图通道的 API Key。'; activeDialog = 'settings'; render(); return; }
     pendingImage = true;
     turn.imageStatus = 'generating';
     turn.imageError = '';
@@ -1576,7 +1616,7 @@
     if (action === 'toggle-image') {
       var imageTurn = state.storyboards.find(function (item) { return Number(item.turn) === Number(target.dataset.turn); });
       if (imageTurn) {
-        imageTurn.imageCollapsed = imageTurn.imageCollapsed === false;
+        imageTurn.imageCollapsed = !imageIsCollapsed(imageTurn);
         syncCurrentTurn(imageTurn);
         persistState();
         render();
@@ -1584,7 +1624,7 @@
       return;
     }
     if (action === 'generate-image') { regenerateCurrentImage(target.dataset.turn); return; }
-    if (action === 'clear-api-key') { var config = getSettings(); config.apiKey = ''; saveSettings(config); activeDialog = 'settings'; render(); return; }
+    if (action === 'clear-api-key') { var config = getSettings(); config.textApiKey = ''; config.imageApiKey = ''; saveSettings(config); activeDialog = 'settings'; render(); return; }
     if (action === 'load-slot') { var loaded = readSlot(target.dataset.slot); if (loaded) { state = normalizeState(loaded); activeDialog = null; PkaMedia.hydrate(state).then(render); persistState(); render(); } return; }
     if (action === 'save-slot') { writeSlot(target.dataset.slot); activeDialog = 'save'; render(); return; }
     if (action === 'delete-slot') { if (window.confirm('确定删除这个存档吗？')) { localStorage.removeItem(SAVE_PREFIX + target.dataset.slot); activeDialog = 'save'; render(); } return; }
@@ -1602,8 +1642,18 @@
     if (kind === 'settings') {
       var data = new FormData(form);
       var current = getSettings();
-      var apiKey = String(data.get('apiKey') || '').trim();
-      saveSettings({ baseURL: String(data.get('baseURL') || '').trim(), apiKey: apiKey || current.apiKey, model: String(data.get('model') || '').trim(), imageModel: String(data.get('imageModel') || '').trim(), images: data.get('images') === 'on', theme: data.get('theme') === 'night' ? 'night' : 'light' });
+      var textApiKey = String(data.get('textApiKey') || '').trim();
+      var imageApiKey = String(data.get('imageApiKey') || '').trim();
+      saveSettings({
+        textBaseURL: String(data.get('textBaseURL') || current.textBaseURL).trim(),
+        textApiKey: textApiKey || current.textApiKey,
+        textModel: String(data.get('textModel') || current.textModel).trim(),
+        imageBaseURL: String(data.get('imageBaseURL') || current.imageBaseURL).trim(),
+        imageApiKey: imageApiKey || current.imageApiKey,
+        imageModel: String(data.get('imageModel') || current.imageModel).trim(),
+        images: data.get('images') === 'on',
+        theme: data.get('theme') === 'night' ? 'night' : 'light'
+      });
       activeDialog = null;
       state.error = '';
       render();

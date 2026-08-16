@@ -1,6 +1,6 @@
 /* ============================================================
  * PWA 引导 —— Service Worker 注册 + 安装提示条
- * AI 配置由玩家在网页设置中填写，不在静态资源中预置密钥。
+ * AI 配置在网页设置中按剧情通道与插图通道分别管理。
  * ============================================================ */
 (function () {
   'use strict';
@@ -10,7 +10,7 @@
      避免 SW 以固定缓存名缓存旧外壳导致升级后内容不刷新 */
   if ('serviceWorker' in navigator && !window.Capacitor) {
     window.addEventListener('load', function () {
-    navigator.serviceWorker.register('./sw.js?v=20260813-continuity-a').catch(function () {
+    navigator.serviceWorker.register('./sw.js?v=20260816-dual-api-a').catch(function () {
         /* 注册失败（如 file:// 环境）不影响游戏 */
       });
     });
