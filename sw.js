@@ -7,7 +7,7 @@
  *   - AI API（POST）：不拦截，直接走网络
  * ============================================================ */
 
-const VERSION = 'pka-v3-dual-api-20260816-a';
+const VERSION = 'pka-v3-image-fix-20260817-a';
 const SHELL_CACHE = `${VERSION}-shell`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 
@@ -19,6 +19,7 @@ const SHELL_ASSETS = [
   './assets/app.js',
   './assets/game-rules.js',
   './assets/media-store.js',
+  './assets/image-client.js',
   './assets/app.css',
   './assets/mobile.css',
   './manifest.webmanifest',
