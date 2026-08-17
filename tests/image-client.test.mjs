@@ -19,7 +19,7 @@ test('图像请求使用 Agnes 接受的像素尺寸并保留竖版比例', () =
 
   assert.equal(request.endpoint, 'https://apihub.agnes-ai.com/v1/images/generations');
   assert.equal(request.body.model, 'agnes-image-2.1-flash');
-  assert.equal(request.body.size, '1024x1536');
+  assert.equal(request.body.size, '1024x768');
   assert.match(request.body.prompt, /森林中的训练家/);
 });
 
@@ -47,5 +47,5 @@ test('图像响应返回 URL，并在 HTTP 错误中保留服务端原因', asyn
   );
 
   assert.equal(calls.length, 1);
-  assert.equal(JSON.parse(calls[0].init.body).size, '1024x1536');
+  assert.equal(JSON.parse(calls[0].init.body).size, '1024x768');
 });

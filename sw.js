@@ -7,7 +7,7 @@
  *   - AI API（POST）：不拦截，直接走网络
  * ============================================================ */
 
-const VERSION = 'pka-v3-image-fix-20260817-a';
+const VERSION = 'pka-v3-image-size-20260817-a';
 const SHELL_CACHE = `${VERSION}-shell`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 

@@ -700,7 +700,7 @@
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + config.apiKey },
-      body: JSON.stringify({ model: config.imageModel || 'agnes-image-2.1-flash', prompt: '宝可梦风格的原创日式动画冒险插图，漫画分镜构图，色彩鲜明，角色表情清晰，适合移动端竖屏展示。不要文字、不要水印、不要复刻具体官方角色。' + prompt, size: '1024x1536' })
+      body: JSON.stringify({ model: config.imageModel || 'agnes-image-2.1-flash', prompt: '宝可梦风格的原创日式动画冒险插图，漫画分镜构图，色彩鲜明，角色表情清晰，适合移动端展示。不要文字、不要水印、不要复刻具体官方角色。' + prompt, size: '1024x768' })
     });
     if (!response.ok) throw new Error('插图模型暂不支持或请求失败');
     const data = await response.json();

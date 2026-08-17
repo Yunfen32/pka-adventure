@@ -181,7 +181,7 @@ pokemon-ai-adventure/
 - 原生 JavaScript、HTML 和 CSS，无构建步骤。
 - AI 接口采用 OpenAI 兼容的 Chat Completions 请求格式。
 - 默认使用智谱 AI 文字模型 `glm-4.7-flash` 生成中文剧情和结构化分镜。
-- 默认使用 Agnes AI 图像模型 `agnes-image-2.1-flash` 生成整页插图，Base URL 为 `https://apihub.agnes-ai.com/v1`；图像请求使用 `2:3` 竖版比例，适配漫画冒险页面。
+- 默认使用 Agnes AI 图像模型 `agnes-image-2.1-flash` 生成整页插图，Base URL 为 `https://apihub.agnes-ai.com/v1`；图像请求使用官方示例尺寸 `1024x768`。
 - 两个通道都采用 OpenAI 兼容请求格式；剧情 API 与插图 API 的配置、密钥和失败状态相互独立。
 - 宝可梦资料和立绘来自 [PokéAPI](https://pokeapi.co)，并通过浏览器缓存减少重复请求。
 - 正史名称和世界观边界由 `assets/world-data.js` 统一注入；PokéAPI 仅作为未命中本地资料时的补充来源。

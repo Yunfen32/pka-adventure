@@ -6,7 +6,7 @@
   'use strict';
 
   var DEFAULT_MODEL = 'agnes-image-2.1-flash';
-  var DEFAULT_SIZE = '1024x1536';
+  var DEFAULT_SIZE = '1024x768';
 
   function normalizeBaseUrl(value) {
     return String(value || 'https://apihub.agnes-ai.com/v1').trim().replace(/\/+$/, '');
