@@ -7,6 +7,8 @@
 
   var DEFAULT_MODEL = 'agnes-image-2.1-flash';
   var DEFAULT_SIZE = '1024x768';
+  var MAX_ATTEMPTS = 3;
+  var RETRYABLE_STATUS = { 408: true, 429: true, 500: true, 502: true, 503: true, 504: true, 520: true, 522: true, 524: true };
 
   function normalizeBaseUrl(value) {
     return String(value || 'https://apihub.agnes-ai.com/v1').trim().replace(/\/+$/, '');
@@ -37,6 +39,54 @@
     }
   }
 
+  function wait(rootObject, milliseconds) {
+    var timer = rootObject.setTimeout || (typeof setTimeout === 'function' ? setTimeout : null);
+    if (!timer || milliseconds <= 0) return Promise.resolve();
+    return new Promise(function (resolve) { timer(resolve, milliseconds); });
+  }
+
+  function requestError(response, payload) {
+    var detail = payload && payload.error && payload.error.message;
+    var error = new Error('插图接口错误（' + response.status + '）：' + String(detail || '服务端拒绝了请求。').slice(0, 240));
+    error.status = Number(response.status) || 0;
+    error.retryable = !!RETRYABLE_STATUS[error.status];
+    return error;
+  }
+
+  async function requestOnce(config, request, transport) {
+    var AbortControllerCtor = root.AbortController || (typeof AbortController === 'function' ? AbortController : null);
+    var controller = AbortControllerCtor ? new AbortControllerCtor() : null;
+    var timerFunction = root.setTimeout || (typeof setTimeout === 'function' ? setTimeout : null);
+    var clearTimer = root.clearTimeout || (typeof clearTimeout === 'function' ? clearTimeout : null);
+    var timer = timerFunction && controller ? timerFunction(function () { controller.abort(); }, 90000) : null;
+
+    try {
+      var options = {
+        method: 'POST',
+        headers: request.headers,
+        body: JSON.stringify(request.body)
+      };
+      if (controller) options.signal = controller.signal;
+      var response = await transport(request.endpoint, options);
+      var payload = await readPayload(response);
+      if (!response.ok) throw requestError(response, payload);
+
+      var image = payload && payload.data && payload.data[0];
+      var result = image && (image.url || (image.b64_json ? 'data:image/png;base64,' + image.b64_json : ''));
+      if (!result) throw new Error('插图接口未返回图片地址。');
+      return result;
+    } catch (error) {
+      if (error && error.name === 'AbortError') {
+        var timeoutError = new Error('插图生成超时，请稍后重试。');
+        timeoutError.retryable = false;
+        throw timeoutError;
+      }
+      throw error;
+    } finally {
+      if (timer && clearTimer) clearTimer(timer);
+    }
+  }
+
   async function generate(config, prompt, fetchImpl) {
     if (!config.images || !prompt) return '';
     if (!config.imageApiKey) throw new Error('插图 API Key 未配置，请在 AI 设置中填写 Agnes 插图通道。');
@@ -44,33 +94,19 @@
     var transport = fetchImpl || (root.fetch && root.fetch.bind(root));
     if (!transport) throw new Error('当前浏览器不支持网络请求。');
 
-    var controller = new root.AbortController();
-    var timer = root.setTimeout(function () { controller.abort(); }, 90000);
     var request = buildRequest(config, prompt);
-
-    try {
-      var response = await transport(request.endpoint, {
-        method: 'POST',
-        headers: request.headers,
-        body: JSON.stringify(request.body),
-        signal: controller.signal
-      });
-      var payload = await readPayload(response);
-      if (!response.ok) {
-        var detail = payload && payload.error && payload.error.message;
-        throw new Error('插图接口错误（' + response.status + '）：' + String(detail || '服务端拒绝了请求。').slice(0, 240));
+    var retryDelay = typeof config.imageRetryDelay === 'number' ? Math.max(0, config.imageRetryDelay) : 1200;
+    for (var attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
+      try {
+        return await requestOnce(config, request, transport);
+      } catch (error) {
+        var retryable = !!(error && error.retryable);
+        if (!retryable && error && !error.status && error.name !== 'AbortError') retryable = true;
+        if (!retryable || attempt >= MAX_ATTEMPTS - 1) throw error;
+        await wait(root, retryDelay * Math.pow(2, attempt));
       }
-
-      var image = payload && payload.data && payload.data[0];
-      var result = image && (image.url || (image.b64_json ? 'data:image/png;base64,' + image.b64_json : ''));
-      if (!result) throw new Error('插图接口未返回图片地址。');
-      return result;
-    } catch (error) {
-      if (error && error.name === 'AbortError') throw new Error('插图生成超时，请稍后重试。');
-      throw error;
-    } finally {
-      root.clearTimeout(timer);
     }
+    return '';
   }
 
   root.PkaImageClient = {

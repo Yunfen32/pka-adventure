@@ -7,7 +7,7 @@
  *   - AI API（POST）：不拦截，直接走网络
  * ============================================================ */
 
-const VERSION = 'pka-v3-image-size-20260817-a';
+const VERSION = 'pka-v4-image-retry-20260817-a';
 const SHELL_CACHE = `${VERSION}-shell`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 
@@ -65,17 +65,17 @@ self.addEventListener('fetch', (event) => {
 
   /* 1. 同源请求（应用外壳）：缓存优先，后台更新 */
   if (url.origin === self.location.origin) {
+    /* Service Worker 自身必须绕过旧缓存，否则旧版本无法更新。 */
+    if (url.pathname.endsWith('/sw.js')) return;
     event.respondWith(
-      caches.match(request, { ignoreSearch: true }).then((cached) => {
-        const networkFetch = fetch(request).then((resp) => {
-          if (resp && resp.ok) {
-            const clone = resp.clone();
-            caches.open(SHELL_CACHE).then((c) => c.put(request, clone));
-          }
-          return resp;
-        }).catch(() => cached);
-        return cached || networkFetch;
-      })
+      /* 网络优先：每次刷新都能拿到新脚本；断网时再回退到缓存。 */
+      fetch(request, { cache: 'no-store' }).then((resp) => {
+        if (resp && resp.ok) {
+          const clone = resp.clone();
+          caches.open(SHELL_CACHE).then((c) => c.put(request, clone));
+        }
+        return resp;
+      }).catch(() => caches.match(request, { ignoreSearch: true }))
     );
     return;
   }

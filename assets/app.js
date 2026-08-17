@@ -695,19 +695,12 @@
   }
 
   async function generateImage(config, prompt) {
-    if (!config.images || !prompt) return '';
-    const endpoint = normalizeBaseUrl(config.baseURL) + '/images/generations';
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + config.apiKey },
-      body: JSON.stringify({ model: config.imageModel || 'agnes-image-2.1-flash', prompt: '宝可梦风格的原创日式动画冒险插图，漫画分镜构图，色彩鲜明，角色表情清晰，适合移动端展示。不要文字、不要水印、不要复刻具体官方角色。' + prompt, size: '1024x768' })
-    });
-    if (!response.ok) throw new Error('插图模型暂不支持或请求失败');
-    const data = await response.json();
-    const image = data && data.data && data.data[0];
-    if (image && image.url) return image.url;
-    if (image && image.b64_json) return 'data:image/png;base64,' + image.b64_json;
-    return '';
+    return window.PkaImageClient.generate({
+      images: config.images,
+      imageBaseURL: config.imageBaseURL || config.baseURL,
+      imageApiKey: config.imageApiKey || config.apiKey,
+      imageModel: config.imageModel
+    }, prompt);
   }
 
   async function submitAction(action) {
@@ -1307,6 +1300,20 @@
     return window.PkaImageClient.generate(config, buildIllustrationPrompt(prompt));
   }
 
+  function formatImageError(error) {
+    var message = String(error && error.message || '').trim();
+    var status = Number(error && error.status) || Number((message.match(/插图接口错误（(\d+)）/) || [])[1] || 0);
+    var detail = message.replace(/^插图接口错误（\d+）：?\s*/, '').trim();
+    if (status === 401) return 'Agnes API Key 无效或已过期，请在 AI 设置中更新插图 Key。';
+    if (status === 402) return 'Agnes 账户额度不足，请检查余额或套餐。';
+    if (status === 403) return '当前 Agnes API Key 没有插图模型权限，请检查账号或模型权限。';
+    if (status === 422) return 'Agnes 拒绝了插图参数（尺寸已使用 1024x768）。' + (detail ? ' 服务端原因：' + detail : '');
+    if (status === 429) return 'Agnes 请求过于频繁，系统已自动重试仍未成功，请稍后再试。';
+    if (status >= 500) return 'Agnes 服务暂时不可用，系统已自动重试仍未成功，请稍后再试。';
+    if (/Failed to fetch|NetworkError|网络请求失败/i.test(message)) return '无法连接 Agnes 插图服务，请检查网络后重试。';
+    return message || '插图暂时不可用，请点击重试。';
+  }
+
   function buildIllustrationPrompt(prompt) {
     var identity = state.identity || {};
     var party = state.party.map(function (id) { var pokemon = getPokemonRecord(id); return pokemon && pokemon.name + ' Lv.' + (pokemon.level || 1); }).filter(Boolean).join('、') || '暂无同行宝可梦';
@@ -1497,7 +1504,7 @@
           turn.image = '';
         } catch (imageError) {
           turn.imageStatus = 'unavailable';
-          turn.imageError = imageError.message || '插图暂时不可用';
+          turn.imageError = formatImageError(imageError);
         } finally {
           pendingImage = false;
           syncCurrentTurn(turn);
@@ -1528,7 +1535,7 @@
       turn.imageStatus = turn.imageRef ? 'ready' : 'unavailable';
     } catch (error) {
       turn.imageStatus = 'unavailable';
-      turn.imageError = error.message || '插图暂时不可用';
+      turn.imageError = formatImageError(error);
     } finally {
       pendingImage = false;
       syncCurrentTurn(turn);

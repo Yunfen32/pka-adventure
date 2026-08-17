@@ -49,3 +49,37 @@ test('图像响应返回 URL，并在 HTTP 错误中保留服务端原因', asyn
   assert.equal(calls.length, 1);
   assert.equal(JSON.parse(calls[0].init.body).size, '1024x768');
 });
+
+test('临时限流后会自动重试并返回图片 URL', async () => {
+  let attempts = 0;
+  const fetchMock = async () => {
+    attempts += 1;
+    if (attempts === 1) {
+      return {
+        ok: false,
+        status: 429,
+        async json() {
+          return { error: { message: 'rate limit' } };
+        },
+      };
+    }
+    return {
+      ok: true,
+      status: 200,
+      async json() {
+        return { data: [{ url: 'https://example.com/generated.png' }] };
+      },
+    };
+  };
+
+  const result = await client.generate({
+    images: true,
+    imageBaseURL: 'https://apihub.agnes-ai.com/v1',
+    imageApiKey: 'test-key',
+    imageModel: 'agnes-image-2.1-flash',
+    imageRetryDelay: 0,
+  }, '森林中的训练家', fetchMock);
+
+  assert.equal(result, 'https://example.com/generated.png');
+  assert.equal(attempts, 2);
+});

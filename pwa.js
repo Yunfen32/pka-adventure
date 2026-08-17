@@ -9,8 +9,16 @@
   /* Capacitor 原生壳内不注册 SW：游戏文件已打包进 APK，
      避免 SW 以固定缓存名缓存旧外壳导致升级后内容不刷新 */
   if ('serviceWorker' in navigator && !window.Capacitor) {
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (window.__pkaReloadedForWorkerUpdate) return;
+      window.__pkaReloadedForWorkerUpdate = true;
+      window.location.reload();
+    });
     window.addEventListener('load', function () {
-    navigator.serviceWorker.register('./sw.js?v=20260817-image-size-a').catch(function () {
+      navigator.serviceWorker.register('./sw.js?v=20260817-image-retry-a').then(function (registration) {
+        /* 主动检查更新，避免用户长期停留在旧版 Service Worker。 */
+        return registration.update();
+      }).catch(function () {
         /* 注册失败（如 file:// 环境）不影响游戏 */
       });
     });
