@@ -430,7 +430,7 @@
   function renderSettingsContent(config) {
     return '<form class="dialog-form provider-settings-form" data-form="settings"><p class="dialog-note">已拆分两个 AI 通道：智谱负责中文剧情与漫画分镜，Agnes 负责整页动漫插图。两边可以独立更换模型和密钥。</p><div class="provider-grid">' +
       renderProviderSettingsCard('01', '剧情通道', '智谱 AI', '中文叙事', '生成连续的小说化剧情、4–6 格漫画分镜、行动选项和游戏事件。', 'textBaseURL', config.textBaseURL, 'textModel', config.textModel, 'textApiKey', config.textApiKey, 'provider-card-text') +
-      renderProviderSettingsCard('02', '插图通道', 'Agnes AI', '整页插图', '根据已确认的分镜和角色资料，在后台生成竖版整页漫画插图。', 'imageBaseURL', config.imageBaseURL, 'imageModel', config.imageModel, 'imageApiKey', config.imageApiKey, 'provider-card-image') +
+      renderProviderSettingsCard('02', '插图通道', 'Agnes AI', '整页插图', '根据已确认的分镜和角色资料，在后台生成整页漫画插图。', 'imageBaseURL', config.imageBaseURL, 'imageModel', config.imageModel, 'imageApiKey', config.imageApiKey, 'provider-card-image') +
       '</div><label class="switch-row"><span>启用每回合整页插图</span><input name="images" type="checkbox" ' + (config.images ? 'checked' : '') + ' /><span class="switch-ui"></span></label><label class="switch-row"><span>夜间阅读模式</span><input name="theme" value="night" type="checkbox" ' + (config.theme === 'night' ? 'checked' : '') + ' /><span class="switch-ui"></span></label><div class="provider-footnote">文字通道不可用时无法推进剧情；插图通道不可用时仍会保留文字剧情，并允许之后单独重试。</div><div class="dialog-actions"><button class="text-button danger-text" type="button" data-action="clear-api-key">清除已保存的两个 API Key</button><button class="primary-button" type="submit">保存双通道设置 ' + icon('check') + '</button></div></form>';
   }
 

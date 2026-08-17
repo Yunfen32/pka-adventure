@@ -10,7 +10,7 @@ vm.runInNewContext(source, context, { filename: 'assets/image-client.js' });
 const client = context.window.PkaImageClient;
 assert.ok(client, '应暴露 PkaImageClient');
 
-test('图像请求使用 Agnes 接受的像素尺寸并保留竖版比例', () => {
+test('图像请求使用 Agnes 官方示例像素尺寸', () => {
   const request = client.buildRequest({
     imageBaseURL: 'https://apihub.agnes-ai.com/v1',
     imageApiKey: 'test-key',
